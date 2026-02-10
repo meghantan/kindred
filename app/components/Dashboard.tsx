@@ -258,28 +258,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Activity Feed */}
-        <div className="bg-white/60 backdrop-blur-md rounded-[2rem] p-8 border border-[#CB857C]/20 shadow-lg">
-          <h2 className="text-2xl font-light text-[#9C2D41] mb-8 flex items-center gap-3">
-            <span className="text-2xl">🚀</span> Recent Updates
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {recentFamilyActivities.map((activity) => (
-              <div key={activity.id} className="p-5 rounded-2xl bg-white border border-[#CB857C]/10 shadow-sm flex items-start gap-4">
-                <div className="w-2 h-2 mt-2 rounded-full bg-[#9C2D41] shrink-0"></div>
-                <div>
-                  <p className="text-sm text-[#4A4A4A] leading-relaxed">
-                    <span className="font-bold text-[#9C2D41]">{activity.creator}</span> created a new event: <span className="italic">{activity.title}</span>
-                  </p>
-                </div>
-              </div>
-            ))}
-            {recentFamilyActivities.length === 0 && (
-               <p className="text-[#CB857C] italic pl-2">No recent updates.</p>
-            )}
-          </div>
-        </div>
-
       </div>
 
       {/* Pop-up Modal (Identical to previous) */}

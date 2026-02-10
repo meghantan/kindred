@@ -4,8 +4,62 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { 
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp 
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp, getDocs 
 } from 'firebase/firestore';
+
+// --- SVG Components ---
+const Icons = {
+  Meal: () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+  ),
+  Activity: () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+  ),
+  Errand: () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+    </svg>
+  ),
+  Other: () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+    </svg>
+  ),
+  Lock: () => (
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+  ),
+  User: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  ),
+  Calendar: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />
+    </svg>
+  ),
+  ChevronLeft: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  ),
+  ChevronRight: () => (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  ),
+  X: () => (
+    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+};
 
 interface JioEvent {
   id: string;
@@ -22,6 +76,11 @@ interface JioEvent {
   familyId: string;
 }
 
+interface MemberInfo {
+  name: string;
+  uid: string;
+}
+
 export default function OpenJioPage() {
   const { userData } = useAuth();
   
@@ -30,10 +89,11 @@ export default function OpenJioPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<JioEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // To toggle edit mode in the modal
+  const [isEditing, setIsEditing] = useState(false);
 
   const [jioEvents, setJioEvents] = useState<JioEvent[]>([]);
-  const [familyBranches, setFamilyBranches] = useState<Record<string, string[]>>({});
+  const [familyBranches, setFamilyBranches] = useState<Record<string, MemberInfo[]>>({});
+  const [allOtherMembers, setAllOtherMembers] = useState<MemberInfo[]>([]);
 
   const [formState, setFormState] = useState({
     title: '',
@@ -45,7 +105,6 @@ export default function OpenJioPage() {
     maxParticipants: ''
   });
 
-  // 1. Fetch Jios
   useEffect(() => {
     if (!userData?.familyId) return;
     const q = query(collection(db, "jios"), where("familyId", "==", userData.familyId));
@@ -62,32 +121,53 @@ export default function OpenJioPage() {
     });
   }, [userData?.familyId]);
 
-  // 2. Fetch Family Branches
   useEffect(() => {
     if (!userData?.familyId) return;
     const q = query(collection(db, "users"), where("familyId", "==", userData.familyId));
     return onSnapshot(q, (snapshot) => {
-      const branches: Record<string, string[]> = { 'Immediate Family': [], 'Grandparents': [], 'Uncles & Aunts': [], 'Cousins': [], 'Second/Third Cousins': [] };
+      const branches: Record<string, MemberInfo[]> = { 'Immediate Family': [], 'Grandparents': [], 'Uncles & Aunts': [], 'Cousins': [], 'Second/Third Cousins': [] };
+      const all: MemberInfo[] = [];
+
       snapshot.forEach(doc => {
         const d = doc.data();
         if (d.uid === userData.uid) return;
+        
+        const member = { name: d.name, uid: d.uid };
+        all.push(member);
+
         const role = d.role?.toLowerCase() || '';
-        if (role.includes('grand')) branches['Grandparents'].push(d.name);
-        else if (role.includes('second') || role.includes('third')) branches['Second/Third Cousins'].push(d.name);
-        else if (role.includes('cousin')) branches['Cousins'].push(d.name);
-        else if (role.includes('uncle') || role.includes('aunt')) branches['Uncles & Aunts'].push(d.name);
-        else branches['Immediate Family'].push(d.name);
+        if (role.includes('grand')) branches['Grandparents'].push(member);
+        else if (role.includes('second') || role.includes('third')) branches['Second/Third Cousins'].push(member);
+        else if (role.includes('cousin')) branches['Cousins'].push(member);
+        else if (role.includes('uncle') || role.includes('aunt')) branches['Uncles & Aunts'].push(member);
+        else branches['Immediate Family'].push(member);
       });
+
+      setAllOtherMembers(all);
       setFamilyBranches(Object.fromEntries(Object.entries(branches).filter(([_, m]) => m.length > 0)));
     });
   }, [userData]);
 
-  // --- Handlers ---
+  const sendInvitationChats = async (invitedMembers: MemberInfo[]) => {
+    if (!userData || invitedMembers.length === 0) return;
+
+    const promises = invitedMembers.map(async (member) => {
+      const chatId = [userData.uid, member.uid].sort().join('_');
+      const invitationText = `${userData.name} invited you to ${formState.title} on ${formState.date} at ${formState.time}. Respond to their invite.`;
+      
+      return addDoc(collection(db, "chats", chatId, "messages"), {
+        text: invitationText,
+        senderId: userData.uid,
+        createdAt: serverTimestamp(),
+      });
+    });
+
+    await Promise.all(promises);
+  };
 
   const handleCreateOrUpdateJio = async () => {
     if (!formState.title || !formState.date || !formState.time || !userData || isSubmitting) return;
     setIsSubmitting(true);
-
     try {
       const jioDate = new Date(`${formState.date}T${formState.time}`);
       const payload = {
@@ -111,12 +191,26 @@ export default function OpenJioPage() {
           familyId: userData.familyId,
           createdAt: Timestamp.now()
         });
+
+        // Determine who to notify via chat
+        let membersToNotify: MemberInfo[] = [];
+        if (formState.visibility === 'Everyone') {
+          membersToNotify = allOtherMembers;
+        } else if (familyBranches[formState.visibility]) {
+          membersToNotify = familyBranches[formState.visibility];
+        }
+        
+        await sendInvitationChats(membersToNotify);
       }
 
       setShowCreateForm(false);
       setIsEditing(false);
       setFormState({ title: '', description: '', date: '', time: '', category: 'meal', visibility: 'Everyone', maxParticipants: '' });
-    } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   const handleDeleteJio = async (id: string) => {
@@ -145,7 +239,13 @@ export default function OpenJioPage() {
   const handleJoinJio = async (id: string) => userData && await updateDoc(doc(db, "jios", id), { participants: arrayUnion(userData.name) });
   const handleLeaveJio = async (id: string) => userData && await updateDoc(doc(db, "jios", id), { participants: arrayRemove(userData.name) });
 
-  const categoryIcons = { meal: '🍽️', activity: '🎯', errand: '🛒', other: '📝' };
+  const categorySVGs = {
+    meal: <Icons.Meal />,
+    activity: <Icons.Activity />,
+    errand: <Icons.Errand />,
+    other: <Icons.Other />
+  };
+
   const categoryColors = { meal: 'bg-orange-100 text-orange-700 border-orange-200', activity: 'bg-green-100 text-green-700 border-green-200', errand: 'bg-blue-100 text-blue-700 border-blue-200', other: 'bg-purple-100 text-purple-700 border-purple-200' };
 
   const myJios = jioEvents.filter(e => e.creatorId === userData?.uid).sort((a,b) => b.date.getTime() - a.date.getTime());
@@ -174,9 +274,9 @@ export default function OpenJioPage() {
           <div className="p-6 flex justify-between items-center bg-[#FAF7F4]">
             <h2 className="text-2xl font-bold text-[#9C2D41]">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
             <div className="flex gap-2">
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} className="p-2 text-[#9C2D41]">◀</button>
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} className="p-2 text-[#9C2D41]"><Icons.ChevronLeft /></button>
               <button onClick={() => setViewDate(new Date())} className="px-4 py-1 text-sm font-bold border border-[#CB857C]/40 rounded-lg text-[#9C2D41]">Today</button>
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} className="p-2 text-[#9C2D41]">▶</button>
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} className="p-2 text-[#9C2D41]"><Icons.ChevronRight /></button>
             </div>
           </div>
           <div className="grid grid-cols-7 text-center py-4 border-b border-[#CB857C]/10 text-xs font-bold uppercase text-[#CB857C]">
@@ -191,8 +291,8 @@ export default function OpenJioPage() {
                   <span className={`text-sm font-bold ${new Date().toDateString() === new Date(viewDate.getFullYear(), viewDate.getMonth(), day).toDateString() ? 'bg-[#9C2D41] text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-[#CB857C]'}`}>{day}</span>
                   <div className="mt-2 space-y-1 overflow-y-auto max-h-[85px] scrollbar-hide">
                     {dayJios.map(jio => (
-                      <button key={jio.id} onClick={() => setSelectedEvent(jio)} className="w-full text-left text-[10px] p-1.5 rounded-lg bg-[#F6CBB7]/20 border border-[#CB857C]/20 text-[#9C2D41] truncate font-bold">
-                        {categoryIcons[jio.category]} {jio.title}
+                      <button key={jio.id} onClick={() => setSelectedEvent(jio)} className="w-full text-left text-[10px] p-1.5 rounded-lg bg-[#F6CBB7]/20 border border-[#CB857C]/20 text-[#9C2D41] truncate font-bold flex items-center gap-1">
+                        {categorySVGs[jio.category]} <span className="truncate">{jio.title}</span>
                       </button>
                     ))}
                   </div>
@@ -204,15 +304,16 @@ export default function OpenJioPage() {
       ) : (
         /* --- LIST VIEW --- */
         <div className="space-y-12">
-          {/* MY JIOS SECTION */}
           {myJios.length > 0 && (
             <section>
-              <h2 className="text-xl font-bold text-[#9C2D41] mb-6 flex items-center gap-2"><span>👤</span> My Jios</h2>
+              <h2 className="text-xl font-bold text-[#9C2D41] mb-6 flex items-center gap-2"><Icons.User /> My Jios</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {myJios.map(jio => (
                   <div key={jio.id} onClick={() => setSelectedEvent(jio)} className="bg-white rounded-2xl border-2 border-[#9C2D41]/20 p-6 shadow-sm hover:shadow-md cursor-pointer transition-all">
                     <div className="flex justify-between items-start mb-3">
-                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${categoryColors[jio.category]}`}>{categoryIcons[jio.category]} {jio.category.toUpperCase()}</span>
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold border flex items-center gap-1 ${categoryColors[jio.category]}`}>
+                        {categorySVGs[jio.category]} {jio.category.toUpperCase()}
+                      </span>
                       <button onClick={(e) => { e.stopPropagation(); openEditForm(jio); }} className="text-[#9C2D41] text-xs font-bold hover:underline">Edit</button>
                     </div>
                     <h3 className="text-xl font-bold text-[#9C2D41]">{jio.title}</h3>
@@ -223,17 +324,17 @@ export default function OpenJioPage() {
             </section>
           )}
 
-          {/* OTHER JIOS SECTION */}
           <section>
-            <h2 className="text-xl font-bold text-[#9C2D41] mb-6 flex items-center gap-2"><span>📅</span> Family Activity Feed</h2>
+            <h2 className="text-xl font-bold text-[#9C2D41] mb-6 flex items-center gap-2"><Icons.Calendar /> Family Activity Feed</h2>
             <div className="space-y-6">
               {otherUpcomingJios.map(jio => (
                 <div key={jio.id} onClick={() => setSelectedEvent(jio)} className="bg-white rounded-2xl border border-[#CB857C]/20 p-6 shadow-sm hover:shadow-md cursor-pointer transition-shadow">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${categoryColors[jio.category]}`}>{categoryIcons[jio.category]} {jio.category.toUpperCase()}</span>
-                        <span className="text-xs font-bold px-2 py-1 bg-[#FAF7F4] text-[#CB857C] rounded-lg border border-[#CB857C]/10">🔒 {jio.visibility}</span>
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1 ${categoryColors[jio.category]}`}>
+                          {categorySVGs[jio.category]} {jio.category.toUpperCase()}
+                        </span>
                         <span className="text-sm text-[#CB857C]">by <span className="font-bold text-[#9C2D41]">{jio.creator}</span></span>
                       </div>
                       <h3 className="text-2xl font-bold text-[#9C2D41]">{jio.title}</h3>
@@ -254,7 +355,7 @@ export default function OpenJioPage() {
       {showCreateForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[#CB857C]/20 relative">
-            <button onClick={() => { setShowCreateForm(false); setIsEditing(false); }} className="absolute top-4 right-6 text-[#CB857C] text-2xl font-light hover:text-[#9C2D41]">×</button>
+            <button onClick={() => { setShowCreateForm(false); setIsEditing(false); }} className="absolute top-4 right-6 text-[#CB857C] hover:text-[#9C2D41] transition-colors"><Icons.X /></button>
             <div className="text-center mb-6">
               <h2 className="text-3xl font-bold text-[#9C2D41] mb-2">{isEditing ? 'Edit Jio' : 'Create New Jio'}</h2>
               <p className="text-sm text-[#CB857C] font-light">Plan a family gathering</p>
@@ -282,17 +383,17 @@ export default function OpenJioPage() {
                 <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                   <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Category</label>
                   <select value={formState.category} onChange={e => setFormState({...formState, category: e.target.value as JioEvent['category']})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold">
-                    <option value="meal">🍽️ Meal</option>
-                    <option value="activity">🎯 Activity</option>
-                    <option value="errand">🛒 Errand</option>
-                    <option value="other">📝 Other</option>
+                    <option value="meal">Meal</option>
+                    <option value="activity">Activity</option>
+                    <option value="errand">Errand</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                   <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Visibility</label>
                   <select value={formState.visibility} onChange={e => setFormState({...formState, visibility: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold">
                     <option value="Everyone">Everyone</option>
-                    {Object.entries(familyBranches).map(([b, m]) => <option key={b} value={b}>{b}</option>)}
+                    {Object.keys(familyBranches).map(branchName => <option key={branchName} value={branchName}>{branchName}</option>)}
                   </select>
                 </div>
               </div>
@@ -309,30 +410,56 @@ export default function OpenJioPage() {
       {selectedEvent && !showCreateForm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[#CB857C]/20 relative text-left">
-            <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-6 text-[#CB857C] text-2xl font-light hover:text-[#9C2D41]">×</button>
+            <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-6 text-[#CB857C] hover:text-[#9C2D41] transition-colors"><Icons.X /></button>
             <div className="text-center mb-6">
-              <div className="inline-block px-3 py-1.5 rounded-xl bg-[#F6CBB7]/20 text-[#9C2D41] font-bold text-xs mb-4 uppercase tracking-widest border border-[#CB857C]/20">{selectedEvent.category}</div>
+              <div className="inline-flex px-3 py-1.5 rounded-xl bg-[#F6CBB7]/20 text-[#9C2D41] font-bold text-xs mb-4 uppercase tracking-widest border border-[#CB857C]/20 flex items-center gap-1">
+                {categorySVGs[selectedEvent.category]} {selectedEvent.category.toUpperCase()}
+              </div>
               <h2 className="text-3xl font-bold text-[#9C2D41] mb-2">{selectedEvent.title}</h2>
               <p className="text-[#CB857C] mb-2 font-light text-lg italic leading-tight">"{selectedEvent.description}"</p>
             </div>
             <div className="space-y-4 mb-8">
-              <div className="flex items-center gap-3 bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10"><div className="w-10 h-10 bg-[#9C2D41] text-white rounded-full flex items-center justify-center font-bold shadow-md">{selectedEvent.creator[0]}</div><div><p className="text-[10px] uppercase font-bold text-zinc-400">Organized by</p><p className="font-bold text-[#9C2D41]">{selectedEvent.creator}</p></div></div>
-              <div className="grid grid-cols-2 gap-4 text-sm text-[#CB857C]"><div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center"><p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Time</p><p className="font-bold text-[#9C2D41]">{selectedEvent.time}</p></div><div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center"><p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Date</p><p className="font-bold text-[#9C2D41]">{selectedEvent.date.toLocaleDateString()}</p></div></div>
-              <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10"><p className="text-[10px] uppercase font-bold text-zinc-400 mb-2 tracking-widest">Joining the activity ({selectedEvent.participants.length})</p><div className="flex flex-wrap gap-2">{selectedEvent.participants.map((person, idx) => <span key={idx} className="px-3 py-1 bg-white border border-[#CB857C]/20 rounded-full text-xs font-bold text-[#9C2D41]">{person}</span>)}</div></div>
+              <div className="flex items-center gap-3 bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
+                <div className="w-10 h-10 bg-[#9C2D41] text-white rounded-full flex items-center justify-center font-bold shadow-md">
+                  {selectedEvent.creator[0]}
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-zinc-400">Organized by</p>
+                  <p className="font-bold text-[#9C2D41]">{selectedEvent.creator}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm text-[#CB857C]">
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
+                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Time</p>
+                  <p className="font-bold text-[#9C2D41]">{selectedEvent.time}</p>
+                </div>
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
+                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Date</p>
+                  <p className="font-bold text-[#9C2D41]">{selectedEvent.date.toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
+                <p className="text-[10px] uppercase font-bold text-zinc-400 mb-2 tracking-widest">Joining the activity ({selectedEvent.participants.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedEvent.participants.map((person, idx) => (
+                    <span key={idx} className="px-3 py-1 bg-white border border-[#CB857C]/20 rounded-full text-xs font-bold text-[#9C2D41]">{person}</span>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="flex gap-3">
               {selectedEvent.creatorId === userData?.uid ? (
                 <>
-                  <button onClick={() => { handleDeleteJio(selectedEvent.id); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100">Delete</button>
-                  <button onClick={() => { openEditForm(selectedEvent); }} className="flex-1 py-4 bg-[#9C2D41] text-white rounded-2xl font-bold shadow-lg">Edit</button>
+                  <button onClick={() => { handleDeleteJio(selectedEvent.id); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 transition-colors">Delete</button>
+                  <button onClick={() => { openEditForm(selectedEvent); }} className="flex-1 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-lg transition-all">Edit</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setSelectedEvent(null)} className="flex-1 py-4 bg-[#FAF7F4] text-[#CB857C] rounded-2xl font-bold border border-[#CB857C]/20">Close</button>
+                  <button onClick={() => setSelectedEvent(null)} className="flex-1 py-4 bg-[#FAF7F4] text-[#CB857C] rounded-2xl font-bold border border-[#CB857C]/20 transition-colors">Close</button>
                   {selectedEvent.participants.includes(userData?.name || '') ? (
-                    <button onClick={() => { handleLeaveJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 shadow-md">Leave</button>
+                    <button onClick={() => { handleLeaveJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 shadow-md transition-all">Leave</button>
                   ) : (
-                    <button onClick={() => { handleJoinJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-[#9C2D41] text-white rounded-2xl font-bold shadow-lg transition-all">Join</button>
+                    <button onClick={() => { handleJoinJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-lg transition-all">Join</button>
                   )}
                 </>
               )}
