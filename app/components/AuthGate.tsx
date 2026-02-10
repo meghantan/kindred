@@ -4,7 +4,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/library/firebase';
 import { LoginPage } from './LoginPage';
-import Onboarding from '@/app/onboarding/page';
+import Onboarding from '@/app/components/OnboardingPage';
 
 interface AuthGateProps {
   children: ReactNode;
