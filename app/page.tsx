@@ -16,13 +16,26 @@ type PageType = 'dashboard' | 'family-tree' | 'chat' | 'open-jio' | 'feed' | 'pr
 export default function Page() {
   const { user, userData, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
+  // State to hold the member selected from Family Tree
+  const [preselectedChatMember, setPreselectedChatMember] = useState<any>(null);
+
+  // Handler to switch to chat and set the user
+  const handleNavigateToChat = (member: any) => {
+    // Transform FamilyMember (id) to UserProfile (uid) format if necessary
+    const chatMember = {
+      ...member,
+      uid: member.id // Ensure we have a uid property for ChatPage
+    };
+    setPreselectedChatMember(chatMember);
+    setCurrentPage('chat');
+  };
 
   const renderPage = () => {
     switch (currentPage) {
       case 'family-tree':
-        return <FamilyTreePage />;
+        return <FamilyTreePage onNavigateToChat={handleNavigateToChat} />;
       case 'chat':
-        return <ChatPage />;
+        return <ChatPage preselectedMember={preselectedChatMember} />;
       case 'open-jio':
         return <OpenJioPage />;
       case 'feed':

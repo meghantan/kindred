@@ -14,23 +14,49 @@ interface FamilyMember {
   connectionType?: string;
 }
 
-const UserAvatar = ({ name, url }: { name: string, url?: string }) => {
+interface FamilyTreePageProps {
+  onNavigateToChat?: (member: FamilyMember) => void;
+}
+
+const UserAvatar = ({ 
+  name, 
+  url, 
+  isMe, 
+  onClick 
+}: { 
+  name: string; 
+  url?: string; 
+  isMe?: boolean;
+  onClick?: () => void;
+}) => {
   const [imageError, setImageError] = useState(false);
   const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   
   return (
-    <div className="w-24 h-24 rounded-full flex items-center justify-center border-4 border-white shadow-xl bg-gradient-to-br from-[#9C2D41] to-[#CB857C] relative overflow-hidden shrink-0 transition-all hover:scale-105 hover:shadow-2xl">
+    <div 
+      onClick={onClick}
+      className={`w-24 h-24 rounded-full flex items-center justify-center border-4 shadow-xl bg-gradient-to-br relative overflow-hidden shrink-0 transition-all hover:scale-110 hover:shadow-2xl ${
+        isMe 
+          ? 'border-[#F6CBB7] ring-4 ring-[#9C2D41]/30 from-[#9C2D41] via-[#CB857C] to-[#F6CBB7]' 
+          : 'border-white from-[#9C2D41] to-[#CB857C] cursor-pointer'
+      }`}
+    >
       {!imageError && url ? (
         <img src={url} alt={name} className="w-full h-full object-cover" onError={() => setImageError(true)} />
       ) : (
         <span className="text-xl font-medium text-[#FAF7F4]">{initials}</span>
       )}
+      {isMe && (
+        <div className="absolute -top-1 -right-1 bg-[#9C2D41] text-[#FAF7F4] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+          ME
+        </div>
+      )}
     </div>
   );
 };
 
-export default function FamilyTreePage() {
-  const { userData } = useAuth();
+export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps) {
+  const { userData, user } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,6 +210,15 @@ export default function FamilyTreePage() {
     }
   }, [members]);
 
+  const handleMemberClick = (member: FamilyMember) => {
+    // Don't open chat with yourself
+    if (member.id === user?.uid) return;
+    
+    if (onNavigateToChat) {
+      onNavigateToChat(member);
+    }
+  };
+
   const uniqueGenerations = Array.from(new Set(members.map(m => m.generation))).sort((a,b) => a-b);
 
   return (
@@ -224,29 +259,44 @@ export default function FamilyTreePage() {
                     Gen {gen}
                   </div>
                   <div className="flex-1 flex justify-center gap-32 flex-wrap">
-                    {members.filter(m => m.generation === gen).map(member => (
-                      <div 
-                        key={member.id}
-                        ref={(el) => {
-                          itemsRef.current[member.id] = el;
-                          if (el) {
-                            const allRefsReady = members.every(m => itemsRef.current[m.id]);
-                            if (allRefsReady) {
-                              setTimeout(drawAllLines, 100);
+                    {members.filter(m => m.generation === gen).map(member => {
+                      const isMe = member.id === user?.uid;
+                      return (
+                        <div 
+                          key={member.id}
+                          ref={(el) => {
+                            itemsRef.current[member.id] = el;
+                            if (el) {
+                              const allRefsReady = members.every(m => itemsRef.current[m.id]);
+                              if (allRefsReady) {
+                                setTimeout(drawAllLines, 100);
+                              }
                             }
-                          }
-                        }}
-                        className="flex flex-col items-center group cursor-pointer"
-                      >
-                        <UserAvatar name={member.name} url={member.photoURL} />
-                        <div className="mt-4 bg-white/95 backdrop-blur-sm border-2 border-[#CB857C]/20 px-5 py-2.5 rounded-2xl shadow-lg group-hover:shadow-xl group-hover:border-[#9C2D41]/40 transition-all">
-                          <p className="text-base font-medium text-[#9C2D41]">{member.name}</p>
-                          {member.role && (
-                            <p className="text-xs text-[#CB857C] capitalize mt-0.5 font-light">{member.role}</p>
-                          )}
+                          }}
+                          className="flex flex-col items-center group"
+                        >
+                          <UserAvatar 
+                            name={member.name} 
+                            url={member.photoURL} 
+                            isMe={isMe}
+                            onClick={() => handleMemberClick(member)}
+                          />
+                          <div className={`mt-4 bg-white/95 backdrop-blur-sm border-2 px-5 py-2.5 rounded-2xl shadow-lg group-hover:shadow-xl transition-all ${
+                            isMe 
+                              ? 'border-[#9C2D41]/40 ring-2 ring-[#9C2D41]/20' 
+                              : 'border-[#CB857C]/20 group-hover:border-[#9C2D41]/40'
+                          }`}>
+                            <p className={`text-base font-medium ${isMe ? 'text-[#9C2D41]' : 'text-[#9C2D41]'}`}>
+                              {member.name}
+                              {isMe && <span className="ml-2 text-xs text-[#CB857C] font-light">(You)</span>}
+                            </p>
+                            {member.role && (
+                              <p className="text-xs text-[#CB857C] capitalize mt-0.5 font-light">{member.role}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -258,7 +308,18 @@ export default function FamilyTreePage() {
       {/* Legend */}
       <div className="mt-8 flex justify-center gap-8 text-sm text-[#9C2D41]">
         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-md border border-[#CB857C]/20">
-          <div className="w-12 h-1 bg-[#CB857C] rounded" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #CB857C 0, #CB857C 10px, transparent 10px, transparent 16px)' }}></div>
+          <svg width="48" height="4" className="overflow-visible">
+            <line 
+              x1="0" 
+              y1="2" 
+              x2="48" 
+              y2="2" 
+              stroke="#CB857C" 
+              strokeWidth="3.5" 
+              strokeLinecap="round"
+              strokeDasharray="10 6"
+            />
+          </svg>
           <span className="font-medium">Partners</span>
         </div>
         <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-md border border-[#CB857C]/20">

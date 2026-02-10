@@ -22,6 +22,10 @@ interface UserProfile {
   photoURL?: string;
 }
 
+interface ChatPageProps {
+  preselectedMember?: UserProfile | null;
+}
+
 const LANGUAGES = [
   { id: 'gen-z', name: 'Gen Z Slang', flag: '🔥' },
   { id: 'elder-english', name: 'Elder English', flag: '📚' },
@@ -31,7 +35,7 @@ const LANGUAGES = [
   { id: 'english', name: 'Standard English', flag: '🇬🇧' },
 ];
 
-export default function ChatPage() {
+export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const { user, userData } = useAuth();
   const [familyMembers, setFamilyMembers] = useState<UserProfile[]>([]);
   const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
@@ -71,6 +75,12 @@ export default function ChatPage() {
     });
     return () => unsubscribe();
   }, [selectedMember, user]);
+
+  useEffect(() => {
+    if (preselectedMember) {
+      setSelectedMember(preselectedMember);
+    }
+  }, [preselectedMember]);
 
   const performTranslation = async (text: string) => {
     try {
