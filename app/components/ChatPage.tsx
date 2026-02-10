@@ -120,6 +120,58 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     }
   }, [preselectedMember]);
 
+// app/components/ChatPage.tsx
+
+const performTranslation = async (text: string) => {
+  try {
+    const res = await fetch("http://localhost:5001/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, fromLang, toLang }),
+    });
+    if (!res.ok) throw new Error("API Failed");
+    const data = await res.json();
+    return data.translated;
+  } catch (err) {
+    console.log("Using offline fallback translation...");
+    let translated = text;
+
+    // Updated fallback logic to include Hokkien common phrases
+    if (fromLang === "hokkien") {
+      const commonHokkien: { [key: string]: string } = {
+        "jiak ba buay": "have you eaten yet",
+        "ho bo": "how are you",
+        "swee": "beautiful/excellent",
+        "sian": "boring/tired",
+      };
+      
+      const lowerText = text.toLowerCase().trim();
+      if (commonHokkien[lowerText]) {
+        return toLang === "gen-z" 
+          ? `[Gen Z]: ${commonHokkien[lowerText]} fr` 
+          : `[Elder English]: ${commonHokkien[lowerText]}?`;
+      }
+    }
+
+    // Existing Gen Z / Elder English fallback logic
+    if (fromLang === "gen-z" && toLang === "elder-english") {
+      translated = text
+        .replace(/fire/gi, "excellent")
+        .replace(/no cap/gi, "honestly")
+        .replace(/slaps/gi, "is wonderful");
+    } else if (fromLang === "elder-english" && toLang === "gen-z") {
+      translated = text
+        .replace(/excellent/gi, "fire")
+        .replace(/honestly/gi, "no cap")
+        .replace(/wonderful/gi, "slaps");
+    } else {
+      const toName = LANGUAGES.find(l => l.id === toLang)?.name;
+      translated = `[${toName} Translation]: ${text}`;
+    }
+    return translated;
+  }
+};
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedMember || !user) return;
