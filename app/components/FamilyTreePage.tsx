@@ -35,19 +35,19 @@ const UserAvatar = ({
   return (
     <div 
       onClick={onClick}
-      className={`w-24 h-24 rounded-full flex items-center justify-center border-4 shadow-xl bg-gradient-to-br relative overflow-hidden shrink-0 transition-all hover:scale-110 hover:shadow-2xl ${
+      className={`w-16 h-16 rounded-full flex items-center justify-center border-3 shadow-md bg-gradient-to-br relative overflow-hidden shrink-0 transition-all hover:scale-105 hover:shadow-lg ${
         isMe 
-          ? 'border-[#F6CBB7] ring-4 ring-[#9C2D41]/30 from-[#9C2D41] via-[#CB857C] to-[#F6CBB7]' 
+          ? 'border-[#F6CBB7] ring-3 ring-[#9C2D41]/30 from-[#9C2D41] via-[#CB857C] to-[#F6CBB7]' 
           : 'border-white from-[#9C2D41] to-[#CB857C] cursor-pointer'
       }`}
     >
       {!imageError && url ? (
         <img src={url} alt={name} className="w-full h-full object-cover" onError={() => setImageError(true)} />
       ) : (
-        <span className="text-xl font-medium text-[#FAF7F4]">{initials}</span>
+        <span className="text-base font-medium text-[#FAF7F4]">{initials}</span>
       )}
       {isMe && (
-        <div className="absolute -top-1 -right-1 bg-[#9C2D41] text-[#FAF7F4] text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">
+        <div className="absolute -top-0.5 -right-0.5 bg-[#9C2D41] text-[#FAF7F4] text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-md">
           ME
         </div>
       )}
@@ -144,7 +144,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       line.setAttribute('stroke-width', width.toString());
       line.setAttribute('stroke-linecap', 'round');
       if (dashed) {
-        line.setAttribute('stroke-dasharray', '10 6');
+        line.setAttribute('stroke-dasharray', '8 4');
       }
       svg.appendChild(line);
     };
@@ -156,7 +156,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         const partnerPos = positions.get(person.connectedTo);
         
         if (myPos && partnerPos) {
-          createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 3.5, true);
+          createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
           
           const midX = (myPos.x + partnerPos.x) / 2;
           const midY = (myPos.y + partnerPos.y) / 2;
@@ -180,7 +180,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         }
 
         if (parentPos) {
-          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 3);
+          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
         }
       }
     });
@@ -192,7 +192,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         const childPos = positions.get(parent.connectedTo);
         
         if (parentPos && childPos) {
-          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 3);
+          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
         }
       }
     });
@@ -222,22 +222,24 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
   const uniqueGenerations = Array.from(new Set(members.map(m => m.generation))).sort((a,b) => a-b);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 pb-32 bg-[#FAF7F4]">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-full mb-4 shadow-lg">
-          <svg className="w-8 h-8 text-[#FAF7F4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        </div>
-        <h1 className="text-5xl font-light bg-gradient-to-r from-[#9C2D41] to-[#CB857C] bg-clip-text text-transparent mb-2">
+    <div className="w-full mx-auto px-8 py-12 pb-32 bg-[#FAF7F4]">
+      {/* Header Section */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl font-light text-[#9C2D41] mb-4" style={{ fontFamily: 'Georgia, serif' }}>
           Our Family Tree
         </h1>
-        <p className="text-[#CB857C] text-lg font-light">{members.length} {members.length === 1 ? 'member' : 'members'}</p>
+        <div className="flex items-center justify-center gap-2 text-[#CB857C]/80">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <span className="text-lg font-medium">{members.length} {members.length === 1 ? 'Member' : 'Members'}</span>
+        </div>
       </div>
 
+      {/* Tree Container */}
       <div 
         ref={containerRef} 
-        className="rounded-3xl border-2 border-[#CB857C]/20 shadow-2xl relative min-h-[700px] py-24 px-12 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/20"
+        className="rounded-3xl border-2 border-[#CB857C]/20 shadow-2xl relative min-h-[700px] py-28 px-20 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
       >
         <svg 
           ref={svgRef}
@@ -246,19 +248,21 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         />
 
         {members.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-6xl mb-4">🌱</div>
-            <p className="text-lg text-[#CB857C] font-light">Loading family tree...</p>
+          <div className="flex flex-col items-center justify-center h-full py-32">
+            <svg className="w-20 h-20 text-[#9C2D41]/40 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <p className="text-xl text-[#CB857C]/80 font-normal">Loading family tree...</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-32 relative" style={{ zIndex: 20 }}>
+          <div className="flex flex-col gap-40 relative" style={{ zIndex: 20 }}>
             {uniqueGenerations.map(gen => {
               return (
                 <div key={gen} className="flex items-center gap-8">
-                  <div className="bg-gradient-to-r from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wider shadow-lg">
+                  <div className="bg-gradient-to-r from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wider shadow-lg whitespace-nowrap">
                     Gen {gen}
                   </div>
-                  <div className="flex-1 flex justify-center gap-32 flex-wrap">
+                  <div className="flex-1 flex justify-center gap-40 flex-wrap">
                     {members.filter(m => m.generation === gen).map(member => {
                       const isMe = member.id === user?.uid;
                       return (
@@ -281,17 +285,17 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                             isMe={isMe}
                             onClick={() => handleMemberClick(member)}
                           />
-                          <div className={`mt-4 bg-white/95 backdrop-blur-sm border-2 px-5 py-2.5 rounded-2xl shadow-lg group-hover:shadow-xl transition-all ${
+                          <div className={`mt-4 bg-white/95 backdrop-blur-sm border-2 px-5 py-3 rounded-2xl shadow-lg group-hover:shadow-xl transition-all min-w-[160px] ${
                             isMe 
                               ? 'border-[#9C2D41]/40 ring-2 ring-[#9C2D41]/20' 
                               : 'border-[#CB857C]/20 group-hover:border-[#9C2D41]/40'
                           }`}>
-                            <p className={`text-base font-medium ${isMe ? 'text-[#9C2D41]' : 'text-[#9C2D41]'}`}>
+                            <p className={`text-base font-normal ${isMe ? 'text-[#9C2D41]' : 'text-[#9C2D41]'}`} style={{ fontFamily: 'Georgia, serif' }}>
                               {member.name}
-                              {isMe && <span className="ml-2 text-xs text-[#CB857C] font-light">(You)</span>}
+                              {isMe && <span className="ml-2 text-sm text-[#CB857C]/80 font-normal">(You)</span>}
                             </p>
                             {member.role && (
-                              <p className="text-xs text-[#CB857C] capitalize mt-0.5 font-light">{member.role}</p>
+                              <p className="text-xs text-[#CB857C]/80 capitalize mt-1 font-normal">{member.role}</p>
                             )}
                           </div>
                         </div>
@@ -306,8 +310,8 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       </div>
 
       {/* Legend */}
-      <div className="mt-8 flex justify-center gap-8 text-sm text-[#9C2D41]">
-        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-md border border-[#CB857C]/20">
+      <div className="mt-12 flex justify-center gap-10 text-sm text-[#9C2D41]">
+        <div className="flex items-center gap-4 bg-white px-6 py-3 rounded-full shadow-md border border-[#CB857C]/20">
           <svg width="48" height="4" className="overflow-visible">
             <line 
               x1="0" 
@@ -315,15 +319,15 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
               x2="48" 
               y2="2" 
               stroke="#CB857C" 
-              strokeWidth="3.5" 
+              strokeWidth="2.5" 
               strokeLinecap="round"
-              strokeDasharray="10 6"
+              strokeDasharray="8 4"
             />
           </svg>
           <span className="font-medium">Partners</span>
         </div>
-        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-md border border-[#CB857C]/20">
-          <div className="w-12 h-1 bg-[#9C2D41] rounded"></div>
+        <div className="flex items-center gap-4 bg-white px-6 py-3 rounded-full shadow-md border border-[#CB857C]/20">
+          <div className="w-12 h-0.5 bg-[#9C2D41] rounded"></div>
           <span className="font-medium">Parent-Child</span>
         </div>
       </div>

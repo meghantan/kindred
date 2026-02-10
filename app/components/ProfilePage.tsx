@@ -4,14 +4,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useState, useRef } from 'react';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/library/firebase';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const MASTER_SKILLS = [
-  "Technology 💻", "Cooking 🍳", "Driving 🚗", 
-  "Groceries 🛒", "Gardening 🌿", "Pets 🐾",
-  "Fitness 🏃", "Reading 📚", "Music 🎵", 
-  "Art 🎨", "Cleaning 🧹", "Finance 💰",
-  "Baking 🍞"
+  "Technology", "Cooking", "Driving", 
+  "Groceries", "Gardening", "Pets",
+  "Fitness", "Reading", "Music", 
+  "Art", "Cleaning", "Finance",
+  "Baking", "Singing"
 ];
 
 export default function ProfilePage({ onBack }: { onBack: () => void }) {
@@ -75,7 +74,7 @@ export default function ProfilePage({ onBack }: { onBack: () => void }) {
     window.location.reload(); // Reload to update auth context
   };
 
-  // Upload Photo
+  // Upload Photo (using base64 like FeedPage)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -86,29 +85,37 @@ export default function ProfilePage({ onBack }: { onBack: () => void }) {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be less than 5MB');
+    // Validate file size (max 800KB like FeedPage)
+    if (file.size > 800 * 1024) {
+      alert('Image must be less than 800KB');
       return;
     }
 
     setIsUploadingPhoto(true);
 
     try {
-      const storage = getStorage();
-      const storageRef = ref(storage, `profile-photos/${userData.uid}/${Date.now()}_${file.name}`);
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        
+        // Update Firestore with base64 image
+        const userRef = doc(db, "users", userData.uid);
+        await updateDoc(userRef, { photoURL: base64Image });
+        
+        // Reload to update UI
+        window.location.reload();
+      };
       
-      await uploadBytes(storageRef, file);
-      const photoURL = await getDownloadURL(storageRef);
-
-      const userRef = doc(db, "users", userData.uid);
-      await updateDoc(userRef, { photoURL });
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setIsUploadingPhoto(false);
+      };
       
-      window.location.reload(); // Reload to update auth context
-    } catch (error) {
+      reader.readAsDataURL(file);
+    } catch (error: any) {
       console.error('Error uploading photo:', error);
-      alert('Failed to upload photo. Please try again.');
-    } finally {
+      alert(`Failed to upload photo: ${error.message}`);
       setIsUploadingPhoto(false);
     }
   };

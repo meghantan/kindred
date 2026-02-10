@@ -67,33 +67,35 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-[#FAF7F4]/95 backdrop-blur-md border-b border-[#CB857C]/20 z-50">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
+    <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-[#CB857C]/10 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-8">
+        <div className="flex items-center justify-between h-20">
           
           {/* LOGO */}
           <button
             onClick={() => onNavigate('dashboard')}
-            className="flex items-center gap-2.5 text-xl font-medium text-[#9C2D41] hover:text-[#CB857C] transition-colors tracking-tight"
+            className="flex items-center gap-3 group"
           >
-            <div className="w-9 h-9 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-[#FAF7F4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-11 h-11 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all">
+              <svg className="w-6 h-6 text-[#FAF7F4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            Kindred
+            <span className="text-2xl font-serif text-[#9C2D41] group-hover:text-[#CB857C] transition-colors" style={{ fontFamily: 'Georgia, serif' }}>
+              Kindred
+            </span>
           </button>
 
           {/* CENTER NAVIGATION */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
-                className={`px-6 py-3 rounded-lg text-base font-medium transition-all flex items-center gap-2.5 ${
+                className={`px-5 py-2.5 rounded-2xl text-sm uppercase tracking-widest font-bold transition-all flex items-center gap-2 ${
                   currentPage === item.id
-                    ? 'bg-[#9C2D41] text-[#FAF7F4] shadow-sm'
-                    : 'text-[#CB857C] hover:text-[#9C2D41] hover:bg-[#F6CBB7]/20'
+                    ? 'bg-[#9C2D41] text-white shadow-md'
+                    : 'text-[#CB857C] hover:text-[#9C2D41] hover:bg-[#FAF7F4]'
                 }`}
               >
                 {item.icon}
@@ -106,12 +108,12 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
           <div className="flex items-center gap-3">
             <button
               onClick={() => onNavigate('profile')}
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-base font-semibold shadow-sm transition-all hover:scale-105 hover:shadow-md border-2 
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-bold shadow-md transition-all hover:scale-105 hover:shadow-lg border-2
                 ${pathname === '/profile' || currentPage === 'profile'
-                  ? 'border-[#9C2D41] ring-2 ring-[#CB857C]/30'
-                  : 'border-[#CB857C]/30'
+                  ? 'border-[#9C2D41] ring-4 ring-[#CB857C]/20'
+                  : 'border-[#CB857C]/20'
                 }
-                bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-[#FAF7F4]`}
+                bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white`}
               title="View Profile"
             >
               {initials}
