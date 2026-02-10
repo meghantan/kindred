@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { 
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp, getDocs 
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp 
 } from 'firebase/firestore';
 
 // --- SVG Components ---
@@ -27,11 +27,6 @@ const Icons = {
   Other: () => (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-    </svg>
-  ),
-  Lock: () => (
-    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002-2zm10-10V7a4 4 0 00-8 0v4h8z" />
     </svg>
   ),
   User: () => (
@@ -148,15 +143,14 @@ export default function OpenJioPage() {
     });
   }, [userData]);
 
-  const sendInvitationChats = async (invitedMembers: MemberInfo[]) => {
+  // Unified notification helper
+  const sendNotificationChats = async (invitedMembers: MemberInfo[], message: string) => {
     if (!userData || invitedMembers.length === 0) return;
 
     const promises = invitedMembers.map(async (member) => {
       const chatId = [userData.uid, member.uid].sort().join('_');
-      const invitationText = `${userData.name} invited you to ${formState.title} on ${formState.date} at ${formState.time}. Respond to their invite.`;
-      
       return addDoc(collection(db, "chats", chatId, "messages"), {
-        text: invitationText,
+        text: message,
         senderId: userData.uid,
         createdAt: serverTimestamp(),
       });
@@ -180,8 +174,19 @@ export default function OpenJioPage() {
         maxParticipants: formState.maxParticipants ? parseInt(formState.maxParticipants) : null,
       };
 
+      // Identify recipients
+      let membersToNotify: MemberInfo[] = [];
+      if (formState.visibility === 'Everyone') {
+        membersToNotify = allOtherMembers;
+      } else if (familyBranches[formState.visibility]) {
+        membersToNotify = familyBranches[formState.visibility];
+      }
+
       if (isEditing && selectedEvent) {
         await updateDoc(doc(db, "jios", selectedEvent.id), payload);
+        // Send Update Notification
+        const updateMsg = `${userData.name} updated the details for "${formState.title}" on ${formState.date}. Please check the app for the new schedule.`;
+        await sendNotificationChats(membersToNotify, updateMsg);
       } else {
         await addDoc(collection(db, "jios"), {
           ...payload,
@@ -191,16 +196,9 @@ export default function OpenJioPage() {
           familyId: userData.familyId,
           createdAt: Timestamp.now()
         });
-
-        // Determine who to notify via chat
-        let membersToNotify: MemberInfo[] = [];
-        if (formState.visibility === 'Everyone') {
-          membersToNotify = allOtherMembers;
-        } else if (familyBranches[formState.visibility]) {
-          membersToNotify = familyBranches[formState.visibility];
-        }
-        
-        await sendInvitationChats(membersToNotify);
+        // Send Invitation Notification
+        const inviteMsg = `${userData.name} invited you to "${formState.title}" on ${formState.date} at ${formState.time}. Respond to their invite!`;
+        await sendNotificationChats(membersToNotify, inviteMsg);
       }
 
       setShowCreateForm(false);
@@ -214,8 +212,19 @@ export default function OpenJioPage() {
   };
 
   const handleDeleteJio = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this Jio?")) return;
+    if (!window.confirm("Are you sure you want to delete this Jio?") || !selectedEvent) return;
     try {
+      // Determine who was invited to send cancellation notice
+      let membersToNotify: MemberInfo[] = [];
+      if (selectedEvent.visibility === 'Everyone') {
+        membersToNotify = allOtherMembers;
+      } else if (familyBranches[selectedEvent.visibility]) {
+        membersToNotify = familyBranches[selectedEvent.visibility];
+      }
+
+      const cancelMsg = `${userData?.name} cancelled the activity: "${selectedEvent.title}" originally scheduled for ${selectedEvent.time} on ${selectedEvent.date.toLocaleDateString()}.`;
+      await sendNotificationChats(membersToNotify, cancelMsg);
+
       await deleteDoc(doc(db, "jios", id));
       setSelectedEvent(null);
     } catch (e) { console.error(e); }
@@ -257,7 +266,7 @@ export default function OpenJioPage() {
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-4xl font-bold text-[#9C2D41]">Open Jio</h1>
-          <p className="text-[#CB857C]">Family connections start with a "Jio"</p>
+          <p className="text-[#CB857C]">Stay connected through shared experiences</p>
         </div>
         <div className="flex gap-4">
           <div className="flex bg-white p-1 rounded-xl shadow-sm border border-[#CB857C]/20">
@@ -279,7 +288,7 @@ export default function OpenJioPage() {
               <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} className="p-2 text-[#9C2D41]"><Icons.ChevronRight /></button>
             </div>
           </div>
-          <div className="grid grid-cols-7 text-center py-4 border-b border-[#CB857C]/10 text-xs font-bold uppercase text-[#CB857C]">
+          <div className="grid grid-cols-7 text-center py-4 border-b border-[#CB857C]/10 text-xs font-bold uppercase text-[#CB857C] tracking-widest">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
           </div>
           <div className="grid grid-cols-7">
@@ -287,7 +296,7 @@ export default function OpenJioPage() {
             {Array.from({ length: new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
               const day = i + 1; const dayJios = jioEvents.filter(e => e.date.getDate() === day && e.date.getMonth() === viewDate.getMonth() && e.date.getFullYear() === viewDate.getFullYear());
               return (
-                <div key={day} className="h-32 border-b border-r border-[#FAF7F4] p-2 hover:bg-[#F6CBB7]/10 transition-colors">
+                <div key={day} className="h-32 border-b border-r border-[#FAF7F4] p-2 hover:bg-[#F6CBB7]/10 transition-colors relative group">
                   <span className={`text-sm font-bold ${new Date().toDateString() === new Date(viewDate.getFullYear(), viewDate.getMonth(), day).toDateString() ? 'bg-[#9C2D41] text-white w-7 h-7 flex items-center justify-center rounded-full' : 'text-[#CB857C]'}`}>{day}</span>
                   <div className="mt-2 space-y-1 overflow-y-auto max-h-[85px] scrollbar-hide">
                     {dayJios.map(jio => (
@@ -358,40 +367,30 @@ export default function OpenJioPage() {
             <button onClick={() => { setShowCreateForm(false); setIsEditing(false); }} className="absolute top-4 right-6 text-[#CB857C] hover:text-[#9C2D41] transition-colors"><Icons.X /></button>
             <div className="text-center mb-6">
               <h2 className="text-3xl font-bold text-[#9C2D41] mb-2">{isEditing ? 'Edit Jio' : 'Create New Jio'}</h2>
-              <p className="text-sm text-[#CB857C] font-light">Plan a family gathering</p>
             </div>
             <div className="space-y-4 mb-8">
               <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                 <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Activity Title</label>
-                <input type="text" value={formState.title} onChange={e => setFormState({...formState, title: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold" placeholder="What's the plan?" />
+                <input type="text" value={formState.title} onChange={e => setFormState({...formState, title: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold" />
               </div>
               <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                 <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Description</label>
-                <textarea value={formState.description} onChange={e => setFormState({...formState, description: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 resize-none text-[#9C2D41]" rows={2} placeholder="Add some details..." />
+                <textarea value={formState.description} onChange={e => setFormState({...formState, description: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none border border-[#CB857C]/10 resize-none text-[#9C2D41]" rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
-                  <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Date</label>
-                  <input type="date" value={formState.date} onChange={e => setFormState({...formState, date: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold" />
-                </div>
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
-                  <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Time</label>
-                  <input type="time" value={formState.time} onChange={e => setFormState({...formState, time: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold" />
-                </div>
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10"><label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Date</label><input type="date" value={formState.date} onChange={e => setFormState({...formState, date: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg" /></div>
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10"><label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Time</label><input type="time" value={formState.time} onChange={e => setFormState({...formState, time: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg" /></div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                   <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Category</label>
-                  <select value={formState.category} onChange={e => setFormState({...formState, category: e.target.value as JioEvent['category']})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold">
-                    <option value="meal">Meal</option>
-                    <option value="activity">Activity</option>
-                    <option value="errand">Errand</option>
-                    <option value="other">Other</option>
+                  <select value={formState.category} onChange={e => setFormState({...formState, category: e.target.value as any})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none">
+                    <option value="meal">Meal</option><option value="activity">Activity</option><option value="errand">Errand</option><option value="other">Other</option>
                   </select>
                 </div>
                 <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                   <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-widest">Visibility</label>
-                  <select value={formState.visibility} onChange={e => setFormState({...formState, visibility: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-[#CB857C]/10 text-[#9C2D41] font-bold">
+                  <select value={formState.visibility} onChange={e => setFormState({...formState, visibility: e.target.value})} className="w-full mt-2 px-3 py-2 bg-white rounded-lg outline-none">
                     <option value="Everyone">Everyone</option>
                     {Object.keys(familyBranches).map(branchName => <option key={branchName} value={branchName}>{branchName}</option>)}
                   </select>
@@ -400,7 +399,7 @@ export default function OpenJioPage() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => { setShowCreateForm(false); setIsEditing(false); }} className="flex-1 py-3 bg-[#FAF7F4] text-[#CB857C] rounded-2xl font-bold border border-[#CB857C]/20">Cancel</button>
-              <button onClick={handleCreateOrUpdateJio} disabled={isSubmitting} className="flex-1 bg-[#9C2D41] text-white py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50">{isSubmitting ? 'Processing...' : isEditing ? 'Update Jio' : 'Launch Jio'}</button>
+              <button onClick={handleCreateOrUpdateJio} disabled={isSubmitting} className="flex-1 bg-[#9C2D41] text-white py-3 rounded-2xl font-bold shadow-lg disabled:opacity-50 transition-all active:scale-95">{isEditing ? 'Update Jio' : 'Launch Jio'}</button>
             </div>
           </div>
         </div>
@@ -420,46 +419,33 @@ export default function OpenJioPage() {
             </div>
             <div className="space-y-4 mb-8">
               <div className="flex items-center gap-3 bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
-                <div className="w-10 h-10 bg-[#9C2D41] text-white rounded-full flex items-center justify-center font-bold shadow-md">
-                  {selectedEvent.creator[0]}
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-zinc-400">Organized by</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedEvent.creator}</p>
-                </div>
+                <div className="w-10 h-10 bg-[#9C2D41] text-white rounded-full flex items-center justify-center font-bold shadow-md">{selectedEvent.creator[0]}</div>
+                <div><p className="text-[10px] uppercase font-bold text-zinc-400">Organized by</p><p className="font-bold text-[#9C2D41]">{selectedEvent.creator}</p></div>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm text-[#CB857C]">
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Time</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedEvent.time}</p>
-                </div>
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Date</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedEvent.date.toLocaleDateString()}</p>
-                </div>
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center"><p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Time</p><p className="font-bold text-[#9C2D41]">{selectedEvent.time}</p></div>
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center"><p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Date</p><p className="font-bold text-[#9C2D41]">{selectedEvent.date.toLocaleDateString()}</p></div>
               </div>
               <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
                 <p className="text-[10px] uppercase font-bold text-zinc-400 mb-2 tracking-widest">Joining the activity ({selectedEvent.participants.length})</p>
                 <div className="flex flex-wrap gap-2">
-                  {selectedEvent.participants.map((person, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-white border border-[#CB857C]/20 rounded-full text-xs font-bold text-[#9C2D41]">{person}</span>
-                  ))}
+                  {selectedEvent.participants.map((person, idx) => (<span key={idx} className="px-3 py-1 bg-white border border-[#CB857C]/20 rounded-full text-xs font-bold text-[#9C2D41]">{person}</span>))}
                 </div>
               </div>
             </div>
             <div className="flex gap-3">
               {selectedEvent.creatorId === userData?.uid ? (
                 <>
-                  <button onClick={() => { handleDeleteJio(selectedEvent.id); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 transition-colors">Delete</button>
-                  <button onClick={() => { openEditForm(selectedEvent); }} className="flex-1 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-lg transition-all">Edit</button>
+                  <button onClick={() => { handleDeleteJio(selectedEvent!.id); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 transition-colors">Delete</button>
+                  <button onClick={() => { openEditForm(selectedEvent!); }} className="flex-1 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-lg transition-all">Edit</button>
                 </>
               ) : (
                 <>
                   <button onClick={() => setSelectedEvent(null)} className="flex-1 py-4 bg-[#FAF7F4] text-[#CB857C] rounded-2xl font-bold border border-[#CB857C]/20 transition-colors">Close</button>
                   {selectedEvent.participants.includes(userData?.name || '') ? (
-                    <button onClick={() => { handleLeaveJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 shadow-md transition-all">Leave</button>
+                    <button onClick={() => { handleLeaveJio(selectedEvent!.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold border border-rose-100 shadow-md transition-all">Leave</button>
                   ) : (
-                    <button onClick={() => { handleJoinJio(selectedEvent.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-lg transition-all">Join</button>
+                    <button onClick={() => { handleJoinJio(selectedEvent!.id); setSelectedEvent(null); }} className="flex-1 py-4 bg-[#9C2D41] text-white rounded-2xl font-bold shadow-lg transition-all">Join</button>
                   )}
                 </>
               )}
