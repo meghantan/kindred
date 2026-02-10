@@ -8,12 +8,36 @@ import {
   query, 
   where, 
   Timestamp, 
+  orderBy, 
+  limit, 
   onSnapshot 
 } from 'firebase/firestore';
+
+// Helper to calculate "2 hours ago"
+const getTimeAgo = (timestamp: any) => {
+  if (!timestamp) return '';
+  const date = timestamp.toDate();
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+  return "Just now";
+};
 
 export default function Dashboard() {
   const { userData } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Data States
+  const [photoFeed, setPhotoFeed] = useState<any[]>([]); // New state for images
   const [myUpcomingJios, setMyUpcomingJios] = useState<any[]>([]);
   const [recentFamilyActivities, setRecentFamilyActivities] = useState<any[]>([]);
   const [selectedJio, setSelectedJio] = useState<any | null>(null); 
@@ -23,7 +47,7 @@ export default function Dashboard() {
     loading: true
   });
 
-  // 1. Live Data Fetching Logic
+  // 1. Live Data Fetching
   useEffect(() => {
     if (!userData?.familyId) return;
 
@@ -31,13 +55,38 @@ export default function Dashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Fetch total family members
+    // A. Fetch Family Stats
     const membersQuery = query(collection(db, "users"), where("familyId", "==", fid));
     const unsubMembers = onSnapshot(membersQuery, (snapshot) => {
       setFamilyStats(prev => ({ ...prev, totalMembers: snapshot.size }));
     });
 
-    // Fetch Jios I have joined
+    // B. Fetch Feed Photos (Linked to FeedPage)
+    // We use the same query as FeedPage to avoid index errors, then filter in JS
+    const feedQuery = query(
+      collection(db, "posts"), 
+      where("familyId", "==", fid),
+      orderBy("createdAt", "desc"),
+      limit(20) // Fetch last 20 posts to find images
+    );
+
+    const unsubFeed = onSnapshot(feedQuery, (snapshot) => {
+      const photos = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter((post: any) => post.imageUrl) // Only keep posts with images
+        .map((post: any) => ({
+          id: post.id,
+          author: post.authorName,
+          image: post.imageUrl,
+          caption: post.content,
+          time: getTimeAgo(post.createdAt)
+        }))
+        .slice(0, 5); // Take top 5
+      
+      setPhotoFeed(photos);
+    });
+
+    // C. Fetch My Jios
     const myJiosQuery = query(
       collection(db, "jios"),
       where("familyId", "==", fid),
@@ -59,7 +108,7 @@ export default function Dashboard() {
       setFamilyStats(prev => ({ ...prev, upcomingEvents: jios.length, loading: false }));
     });
 
-    // Fetch Recent Activity for the general feed
+    // D. Fetch Recent Activity Log
     const recentQuery = query(collection(db, "jios"), where("familyId", "==", fid));
     const unsubRecent = onSnapshot(recentQuery, (snapshot) => {
       const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -70,24 +119,21 @@ export default function Dashboard() {
 
     return () => {
       unsubMembers();
+      unsubFeed();
       unsubMyJios();
       unsubRecent();
     };
   }, [userData]);
 
-  // Carousel Data
-  const feedItems = [
-    { id: 1, author: 'Mom', image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800&auto=format&fit=crop', caption: 'Beautiful family dinner tonight', time: '2 hours ago' },
-    { id: 2, author: 'Dad', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800&auto=format&fit=crop', caption: 'Weekend dim sum adventure', time: '5 hours ago' }
-  ];
-
+  // Carousel Auto-Rotation
   useEffect(() => {
-    const interval = setInterval(() => setCurrentSlide((prev) => (prev + 1) % feedItems.length), 5000);
+    if (photoFeed.length === 0) return;
+    const interval = setInterval(() => setCurrentSlide((prev) => (prev + 1) % photoFeed.length), 5000);
     return () => clearInterval(interval);
-  }, [feedItems.length]);
+  }, [photoFeed.length]);
 
   return (
-    <div className="min-h-screen bg-[#FAF7F4] pb-20"> {/* Fixed Background */}
+    <div className="min-h-screen bg-[#FAF7F4] pb-20">
       <div className="max-w-7xl mx-auto px-6 py-12">
         
         {/* Welcome Header */}
@@ -98,44 +144,93 @@ export default function Dashboard() {
           <p className="text-[#CB857C]/70 text-lg font-light">Here is your personal family schedule.</p>
         </div>
 
-        {/* Stats & Carousel */}
+        {/* Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+          
+          {/* PHOTO CAROUSEL (Now Real Data) */}
           <div className="lg:col-span-2">
-            <div className="bg-white/80 backdrop-blur-sm rounded-3xl border border-[#CB857C]/20 overflow-hidden shadow-lg h-96">
-              <div className="relative h-full">
-                {feedItems.map((item, index) => (
-                  <div key={item.id} className={`absolute inset-0 transition-opacity duration-700 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
-                    <img src={item.image} className="w-full h-full object-cover" alt="" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#9C2D41]/90 via-transparent to-transparent" />
-                    <div className="absolute bottom-0 p-8 text-white">
-                      <p className="text-sm font-medium mb-1">{item.author} • {item.time}</p>
-                      <p className="text-2xl font-light">{item.caption}</p>
+            <div className="bg-white/80 backdrop-blur-sm rounded-[2rem] border border-[#CB857C]/20 overflow-hidden shadow-lg h-96 relative group">
+              {photoFeed.length > 0 ? (
+                <div className="relative h-full w-full">
+                  {photoFeed.map((item, index) => (
+                    <div 
+                      key={item.id} 
+                      className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
+                        index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
+                      }`}
+                    >
+                      <img src={item.image} className="w-full h-full object-cover" alt="Family memory" />
+                      
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#9C2D41]/90 via-[#9C2D41]/20 to-transparent opacity-80" />
+                      
+                      {/* Caption */}
+                      <div className="absolute bottom-0 left-0 p-8 text-white w-full">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                            {item.author}
+                          </span>
+                          <span className="text-white/80 text-xs font-medium">• {item.time}</span>
+                        </div>
+                        <p className="text-3xl font-light leading-tight line-clamp-2 drop-shadow-md">
+                          {item.caption || "A new memory shared"}
+                        </p>
+                      </div>
                     </div>
+                  ))}
+                  
+                  {/* Indicators */}
+                  <div className="absolute bottom-4 right-8 flex gap-2">
+                    {photoFeed.map((_, idx) => (
+                      <button 
+                        key={idx}
+                        onClick={() => setCurrentSlide(idx)}
+                        className={`w-2 h-2 rounded-full transition-all ${
+                          idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/80'
+                        }`}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                // Fallback State (No Photos)
+                <div className="h-full flex flex-col items-center justify-center bg-[#FAF7F4] text-[#CB857C]">
+                  <div className="text-5xl mb-4 opacity-50">📸</div>
+                  <h3 className="text-xl font-bold text-[#9C2D41]">No photos yet</h3>
+                  <p className="text-sm font-light mt-2">Photos posted in the Feed will appear here.</p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-3xl shadow-xl p-8 flex flex-col justify-center space-y-6 text-white">
-            <div className="flex justify-between items-center border-b border-white/20 pb-4">
-              <span className="text-sm font-light opacity-90 uppercase tracking-widest">Family Members</span>
-              <span className="text-4xl font-light">{familyStats.loading ? '—' : familyStats.totalMembers}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-light opacity-90 uppercase tracking-widest">My Upcoming Jios</span>
-              <span className="text-4xl font-light">{familyStats.loading ? '—' : familyStats.upcomingEvents}</span>
+          {/* Family Stats Card */}
+          <div className="bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-[2rem] shadow-xl p-8 flex flex-col justify-center space-y-8 text-white relative overflow-hidden">
+            {/* Decorative Circle */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              <div className="flex justify-between items-end border-b border-white/20 pb-6 mb-6">
+                <span className="text-sm font-medium opacity-90 uppercase tracking-widest">Family<br/>Members</span>
+                <span className="text-6xl font-light">{familyStats.loading ? '-' : familyStats.totalMembers}</span>
+              </div>
+              <div className="flex justify-between items-end">
+                <span className="text-sm font-medium opacity-90 uppercase tracking-widest">Upcoming<br/>Events</span>
+                <span className="text-6xl font-light">{familyStats.loading ? '-' : familyStats.upcomingEvents}</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* My Upcoming Activities */}
         <div className="mb-12">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-[#9C2D41]/10 rounded-xl flex items-center justify-center border border-[#9C2D41]/20">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-[#9C2D41] rounded-2xl flex items-center justify-center text-white shadow-md">
               <span className="text-xl">📅</span>
             </div>
-            <h2 className="text-3xl font-light text-[#9C2D41]">My Upcoming Activities</h2>
+            <div>
+              <h2 className="text-3xl font-light text-[#9C2D41]">My Upcoming Activities</h2>
+              <p className="text-[#CB857C] text-sm">Events you have joined</p>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -144,97 +239,91 @@ export default function Dashboard() {
                 <button 
                   key={jio.id} 
                   onClick={() => setSelectedJio(jio)}
-                  className="text-left p-6 rounded-2xl bg-white border border-[#CB857C]/20 shadow-sm hover:shadow-md hover:border-[#9C2D41]/40 transition-all active:scale-95 group"
+                  className="text-left p-6 rounded-[2rem] bg-white border border-[#CB857C]/20 shadow-sm hover:shadow-lg hover:border-[#9C2D41]/30 hover:-translate-y-1 transition-all active:scale-95 group"
                 >
                   <div className="flex justify-between items-center mb-4">
-                    <span className="px-2 py-1 rounded-lg bg-[#FAF7F4] text-[10px] font-bold text-[#9C2D41] uppercase border border-[#CB857C]/10">{jio.category}</span>
-                    <span className="text-[10px] text-[#CB857C] font-bold uppercase">{jio.displayDate}</span>
+                    <span className="px-3 py-1 rounded-full bg-[#FAF7F4] text-[10px] font-bold text-[#9C2D41] uppercase tracking-wide border border-[#CB857C]/10">{jio.category}</span>
+                    <span className="text-xs text-[#CB857C] font-bold uppercase">{jio.displayDate}</span>
                   </div>
-                  <h3 className="text-xl font-bold text-[#9C2D41] mb-1 group-hover:underline">{jio.title}</h3>
-                  <p className="text-sm text-[#CB857C] font-light line-clamp-2">{jio.description}</p>
+                  <h3 className="text-xl font-bold text-[#9C2D41] mb-2 group-hover:text-[#CB857C] transition-colors">{jio.title}</h3>
+                  <p className="text-sm text-[#CB857C]/80 font-light line-clamp-2 leading-relaxed">{jio.description}</p>
                 </button>
               ))
             ) : (
-              <div className="col-span-3 py-12 text-center border-2 border-dashed border-[#CB857C]/20 rounded-3xl text-[#CB857C] italic">No joined activities.</div>
+              <div className="col-span-3 py-16 text-center border-2 border-dashed border-[#CB857C]/20 rounded-[2rem]">
+                <p className="text-[#9C2D41] font-bold text-lg">No activities scheduled</p>
+                <p className="text-[#CB857C] text-sm mt-1">Check the 'Jio' page to join events!</p>
+              </div>
             )}
           </div>
         </div>
 
         {/* Recent Activity Feed */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-[#CB857C]/20 shadow-lg">
-          <h2 className="text-2xl font-normal text-[#9C2D41] mb-8 flex items-center gap-3">
-            <span className="text-xl">🚀</span> Recent Family Activity
+        <div className="bg-white/60 backdrop-blur-md rounded-[2rem] p-8 border border-[#CB857C]/20 shadow-lg">
+          <h2 className="text-2xl font-light text-[#9C2D41] mb-8 flex items-center gap-3">
+            <span className="text-2xl">🚀</span> Recent Updates
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {recentFamilyActivities.map((activity) => (
-              <div key={activity.id} className="p-4 rounded-xl bg-[#F6CBB7]/10 border border-[#CB857C]/10">
-                <p className="text-sm font-light text-[#9C2D41] mb-1">
-                  <span className="font-bold">{activity.creator}</span> jio-ed: {activity.title}
-                </p>
-                <span className="text-[10px] text-[#CB857C]/60 font-light">Just now</span>
+              <div key={activity.id} className="p-5 rounded-2xl bg-white border border-[#CB857C]/10 shadow-sm flex items-start gap-4">
+                <div className="w-2 h-2 mt-2 rounded-full bg-[#9C2D41] shrink-0"></div>
+                <div>
+                  <p className="text-sm text-[#4A4A4A] leading-relaxed">
+                    <span className="font-bold text-[#9C2D41]">{activity.creator}</span> created a new event: <span className="italic">{activity.title}</span>
+                  </p>
+                </div>
               </div>
             ))}
+            {recentFamilyActivities.length === 0 && (
+               <p className="text-[#CB857C] italic pl-2">No recent updates.</p>
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* Activity Details Pop-up */}
+      {/* Pop-up Modal (Identical to previous) */}
       {selectedJio && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl border border-[#CB857C]/20 relative text-left">
-            <button onClick={() => setSelectedJio(null)} className="absolute top-4 right-6 text-[#CB857C] text-2xl font-light hover:text-[#9C2D41]">×</button>
+        <div className="fixed inset-0 bg-[#9C2D41]/20 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl border border-[#F6CBB7] relative text-left">
+            <button onClick={() => setSelectedJio(null)} className="absolute top-6 right-6 text-[#CB857C] text-2xl hover:text-[#9C2D41] transition-colors">✕</button>
             
-            <div className="text-center mb-6">
-              <div className="inline-block px-3 py-1.5 rounded-xl bg-[#F6CBB7]/20 text-[#9C2D41] font-bold text-xs mb-4 uppercase tracking-widest border border-[#CB857C]/20">
+            <div className="text-center mb-8 mt-2">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-[#FAF7F4] text-[#9C2D41] font-bold text-xs mb-5 uppercase tracking-widest border border-[#CB857C]/20">
                 {selectedJio.category}
-              </div>
-              <h2 className="text-3xl font-bold text-[#9C2D41] mb-2">{selectedJio.title}</h2>
-              <p className="text-[#CB857C] mb-2 font-light text-lg italic leading-tight">"{selectedJio.description}"</p>
+              </span>
+              <h2 className="text-3xl font-bold text-[#9C2D41] mb-3 leading-tight">{selectedJio.title}</h2>
+              <p className="text-[#CB857C] font-serif text-lg italic">"{selectedJio.description}"</p>
             </div>
 
             <div className="space-y-4 mb-8">
-              {/* 1. Creator Info */}
-              <div className="flex items-center gap-3 bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
-                <div className="w-10 h-10 bg-[#9C2D41] text-white rounded-full flex items-center justify-center font-bold shadow-md">
+              <div className="flex items-center gap-4 bg-[#FAF7F4] p-4 rounded-2xl">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white rounded-full flex items-center justify-center font-bold text-lg shadow-sm">
                   {selectedJio.creator[0]}
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-zinc-400">Organized by</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedJio.creator}</p>
+                  <p className="text-[10px] uppercase font-bold text-[#CB857C] tracking-wider">Organized by</p>
+                  <p className="font-bold text-[#9C2D41] text-lg">{selectedJio.creator}</p>
                 </div>
               </div>
 
-              {/* 2. Activity Time and Date */}
-              <div className="grid grid-cols-2 gap-4 text-sm text-[#CB857C]">
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Time</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedJio.time}</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl text-center">
+                  <p className="text-[10px] uppercase font-bold text-[#CB857C] mb-1">Time</p>
+                  <p className="font-bold text-[#9C2D41] text-lg">{selectedJio.time}</p>
                 </div>
-                <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Date</p>
-                  <p className="font-bold text-[#9C2D41]">{selectedJio.displayDate}</p>
-                </div>
-              </div>
-
-              {/* 3. List of Participants */}
-              <div className="bg-[#FAF7F4] p-4 rounded-2xl border border-[#CB857C]/10">
-                <p className="text-[10px] uppercase font-bold text-zinc-400 mb-2 tracking-widest">Joining the activity ({selectedJio.participants.length})</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedJio.participants.map((person: string, idx: number) => (
-                    <span key={idx} className="px-3 py-1 bg-white border border-[#CB857C]/20 rounded-full text-xs font-bold text-[#9C2D41]">
-                      {person}
-                    </span>
-                  ))}
+                <div className="bg-[#FAF7F4] p-4 rounded-2xl text-center">
+                  <p className="text-[10px] uppercase font-bold text-[#CB857C] mb-1">Date</p>
+                  <p className="font-bold text-[#9C2D41] text-lg">{selectedJio.displayDate}</p>
                 </div>
               </div>
             </div>
 
             <button 
               onClick={() => setSelectedJio(null)} 
-              className="w-full py-4 bg-[#9C2D41] text-white rounded-2xl font-bold shadow-lg hover:bg-[#7D2434] transition-all"
+              className="w-full py-4 bg-[#9C2D41] text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-[#852233] hover:shadow-xl hover:-translate-y-0.5 transition-all"
             >
-              Close Details
+              Close
             </button>
           </div>
         </div>
