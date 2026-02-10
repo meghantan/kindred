@@ -8,8 +8,9 @@ import FamilyTreePage from '@/app/components/FamilyTreePage';
 import TranslationPage from '@/app/components/TranslationPage';
 import OpenJioPage from '@/app/components/OpenJioPage';
 import FeedPage from '@/app/components/FeedPage';
+import ProfilePage from '@/app/components/ProfilePage';
 
-type PageType = 'dashboard' | 'family-tree' | 'translation' | 'open-jio' | 'feed';
+type PageType = 'dashboard' | 'family-tree' | 'translation' | 'open-jio' | 'feed' | 'profile';
 
 export default function Home() {
   const { userData } = useAuth(); // Get real user data
@@ -25,6 +26,9 @@ export default function Home() {
         return <OpenJioPage />;
       case 'feed':
         return <FeedPage />;
+      case 'profile': 
+        return <ProfilePage onBack={() => setCurrentPage('dashboard')} />;
+      
       default:
         // Pass the real name to the dashboard
         return <Dashboard onNavigate={setCurrentPage} userName={userData?.name} />;
