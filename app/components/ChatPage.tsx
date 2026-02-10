@@ -7,12 +7,12 @@ import { collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp 
 
 interface Message {
   id: string;
-  text: string;           // The original text
-  translatedText?: string; // The translated result
+  text: string;
+  translatedText?: string;
   senderId: string;
   createdAt: any;
-  fromLang?: string;      // Metadata
-  toLang?: string;        // Metadata
+  fromLang?: string;
+  toLang?: string;
 }
 
 interface UserProfile {
@@ -22,7 +22,6 @@ interface UserProfile {
   photoURL?: string;
 }
 
-// 1. YOUR LANGUAGES CONFIG
 const LANGUAGES = [
   { id: 'gen-z', name: 'Gen Z Slang', flag: '🔥' },
   { id: 'elder-english', name: 'Elder English', flag: '📚' },
@@ -39,7 +38,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   
-  // 2. NEW TRANSLATION STATE
   const [isTranslationMode, setIsTranslationMode] = useState(false);
   const [fromLang, setFromLang] = useState('gen-z');
   const [toLang, setToLang] = useState('elder-english');
@@ -47,7 +45,6 @@ export default function ChatPage() {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // FETCH FAMILY (Lobby)
   useEffect(() => {
     if (!userData?.familyId) return;
     const q = query(collection(db, "users"), where("familyId", "==", userData.familyId));
@@ -62,7 +59,6 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [userData, user]);
 
-  // FETCH MESSAGES (Chat Room)
   useEffect(() => {
     if (!selectedMember || !user) return;
     const chatId = [user.uid, selectedMember.uid].sort().join('_');
@@ -76,10 +72,8 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [selectedMember, user]);
 
-  // 3. THE TRANSLATION LOGIC (Integrated from your snippet)
   const performTranslation = async (text: string) => {
     try {
-      // A. Try Real API (If you have a server running)
       const res = await fetch("http://localhost:5001/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,7 +83,6 @@ export default function ChatPage() {
       const data = await res.json();
       return data.translated;
     } catch (err) {
-      // B. Fallback: Your Mock Logic (The Hackathon "Magic")
       console.log("Using offline fallback translation...");
       let translated = text;
 
@@ -111,7 +104,6 @@ export default function ChatPage() {
           .replace(/wonderful/gi, "slaps")
           .replace(/certainly/gi, "bet");
       } else {
-        // Generic Fallback
         const fromName = LANGUAGES.find(l => l.id === fromLang)?.name;
         const toName = LANGUAGES.find(l => l.id === toLang)?.name;
         translated = `[${toName} Translation]: ${text}`;
@@ -120,28 +112,25 @@ export default function ChatPage() {
     }
   };
 
-  // 4. SEND MESSAGE (Updated)
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedMember || !user) return;
 
     const chatId = [user.uid, selectedMember.uid].sort().join('_');
     const originalText = newMessage;
-    setNewMessage(''); // Clear UI immediately
+    setNewMessage('');
 
     let finalTranslatedText = null;
 
-    // If Mode is ON, Translate FIRST
     if (isTranslationMode) {
       setIsTranslating(true);
       finalTranslatedText = await performTranslation(originalText);
       setIsTranslating(false);
     }
 
-    // Save to Firestore
     await addDoc(collection(db, "chats", chatId, "messages"), {
       text: originalText,
-      translatedText: finalTranslatedText, // Save the result!
+      translatedText: finalTranslatedText,
       senderId: user.uid,
       createdAt: serverTimestamp(),
       fromLang: isTranslationMode ? fromLang : null,
@@ -150,13 +139,13 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] max-w-6xl mx-auto border-x border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm">
+    <div className="flex h-[calc(100vh-64px)] max-w-6xl mx-auto border-x border-[#CB857C]/20 bg-[#FAF7F4] shadow-sm">
       
       {/* LEFT SIDEBAR */}
-      <div className="w-1/3 border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-800/50 hidden md:flex flex-col">
-        <div className="p-4 border-b border-zinc-200 dark:border-zinc-700">
-          <h2 className="font-bold text-lg text-zinc-800 dark:text-zinc-100">Family Members</h2>
-          <p className="text-xs text-zinc-500">Select a member to chat</p>
+      <div className="w-1/3 border-r border-[#CB857C]/20 bg-white/50 backdrop-blur-sm hidden md:flex flex-col">
+        <div className="p-4 border-b border-[#CB857C]/10">
+          <h2 className="font-medium text-lg text-[#9C2D41]">Family Members</h2>
+          <p className="text-xs text-[#CB857C] font-light">Select a member to chat</p>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {familyMembers.map((member) => (
@@ -165,49 +154,49 @@ export default function ChatPage() {
               onClick={() => setSelectedMember(member)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
                 selectedMember?.uid === member.uid 
-                  ? 'bg-white shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-700 dark:ring-zinc-600' 
-                  : 'hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                  ? 'bg-[#F6CBB7]/30 shadow-sm ring-1 ring-[#9C2D41]/20' 
+                  : 'hover:bg-[#F6CBB7]/10'
               }`}
             >
-              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-lg">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] flex items-center justify-center font-medium text-lg">
                 {member.name[0]}
               </div>
               <div>
-                <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">{member.name}</p>
-                <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-zinc-200 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300 uppercase font-bold tracking-wider">
+                <p className="font-medium text-sm text-[#9C2D41]">{member.name}</p>
+                <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-[#CB857C]/10 text-[#9C2D41] uppercase font-medium tracking-wider">
                   {member.role}
                 </span>
               </div>
             </button>
           ))}
           {familyMembers.length === 0 && (
-            <div className="p-8 text-center text-zinc-400 text-sm">No one else is here yet.</div>
+            <div className="p-8 text-center text-[#CB857C] text-sm font-light">No one else is here yet.</div>
           )}
         </div>
       </div>
 
       {/* RIGHT SIDE: CHAT */}
-      <div className="flex-1 flex flex-col relative bg-white dark:bg-zinc-900">
+      <div className="flex-1 flex flex-col relative bg-[#FAF7F4]">
         {selectedMember ? (
           <>
             {/* HEADER */}
-            <div className="h-16 px-6 border-b border-zinc-200 dark:border-zinc-700 flex items-center justify-between bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10">
+            <div className="h-16 px-6 border-b border-[#CB857C]/10 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
               <div className="flex items-center gap-3">
-                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm md:hidden">
+                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] flex items-center justify-center font-medium text-sm md:hidden">
                     {selectedMember.name[0]}
                  </div>
                  <div>
-                   <h3 className="font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{selectedMember.name}</h3>
-                   <p className="text-xs text-green-500 font-medium">● Online</p>
+                   <h3 className="font-medium text-[#9C2D41] leading-tight">{selectedMember.name}</h3>
+                   <p className="text-xs text-[#CB857C] font-light">● Online</p>
                  </div>
               </div>
 
               <button
                 onClick={() => setIsTranslationMode(!isTranslationMode)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all border ${
                   isTranslationMode
-                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-200'
-                    : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:bg-zinc-100'
+                    ? 'bg-[#9C2D41] text-[#FAF7F4] border-[#9C2D41] shadow-md'
+                    : 'bg-white text-[#CB857C] border-[#CB857C]/30 hover:bg-[#F6CBB7]/20'
                 }`}
               >
                 <span>{isTranslationMode ? '✨' : '🌐'}</span>
@@ -215,25 +204,25 @@ export default function ChatPage() {
               </button>
             </div>
 
-            {/* TRANSLATION SETTINGS BAR (Visible when Active) */}
+            {/* TRANSLATION SETTINGS BAR */}
             {isTranslationMode && (
-              <div className="bg-purple-50 dark:bg-purple-900/10 border-b border-purple-100 dark:border-purple-900/30 px-6 py-2 flex items-center gap-2 animate-in slide-in-from-top-2">
-                <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">Translate:</span>
+              <div className="bg-[#F6CBB7]/30 border-b border-[#CB857C]/20 px-6 py-2 flex items-center gap-2">
+                <span className="text-xs font-medium text-[#9C2D41] uppercase tracking-wide">Translate:</span>
                 
                 <select 
                   value={fromLang} 
                   onChange={(e) => setFromLang(e.target.value)}
-                  className="text-xs p-1.5 rounded-lg border-purple-200 bg-white text-purple-900 focus:ring-2 focus:ring-purple-500"
+                  className="text-xs p-1.5 rounded-lg border-[#CB857C]/30 bg-white text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41] outline-none"
                 >
                   {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.flag} {l.name}</option>)}
                 </select>
 
-                <span className="text-purple-400">→</span>
+                <span className="text-[#CB857C]">→</span>
 
                 <select 
                   value={toLang} 
                   onChange={(e) => setToLang(e.target.value)}
-                  className="text-xs p-1.5 rounded-lg border-purple-200 bg-white text-purple-900 focus:ring-2 focus:ring-purple-500"
+                  className="text-xs p-1.5 rounded-lg border-[#CB857C]/30 bg-white text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41] outline-none"
                 >
                   {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.flag} {l.name}</option>)}
                 </select>
@@ -241,28 +230,27 @@ export default function ChatPage() {
             )}
 
             {/* MESSAGES */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-zinc-50/50 dark:bg-zinc-900/50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#FAF7F4]">
               {messages.map((msg) => {
                 const isMe = msg.senderId === user?.uid;
                 return (
                   <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[75%] p-3.5 rounded-2xl text-sm shadow-sm relative group ${
                       isMe 
-                        ? 'bg-blue-600 text-white rounded-tr-none' 
-                        : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 rounded-tl-none'
+                        ? 'bg-[#9C2D41] text-[#FAF7F4] rounded-tr-none' 
+                        : 'bg-white text-[#9C2D41] border border-[#CB857C]/20 rounded-tl-none'
                     }`}>
                       
-                      {/* 1. Show Translated Text FIRST (If it exists) */}
                       {msg.translatedText ? (
                         <>
-                          <p className="font-medium text-[15px]">{msg.translatedText}</p>
-                          <hr className={`my-2 ${isMe ? 'border-white/30' : 'border-zinc-200 dark:border-zinc-700'}`} />
-                          <p className={`text-xs ${isMe ? 'text-blue-100' : 'text-zinc-400'}`}>
+                          <p className="font-normal text-[15px]">{msg.translatedText}</p>
+                          <hr className={`my-2 ${isMe ? 'border-[#FAF7F4]/30' : 'border-[#CB857C]/20'}`} />
+                          <p className={`text-xs font-light ${isMe ? 'text-[#FAF7F4]/80' : 'text-[#CB857C]'}`}>
                             Original: "{msg.text}"
                           </p>
                         </>
                       ) : (
-                        <p>{msg.text}</p>
+                        <p className="font-light">{msg.text}</p>
                       )}
 
                     </div>
@@ -273,7 +261,7 @@ export default function ChatPage() {
             </div>
 
             {/* INPUT AREA */}
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+            <div className="p-4 border-t border-[#CB857C]/10 bg-white/80 backdrop-blur-sm">
                <form onSubmit={handleSendMessage} className="flex gap-2 relative">
                  <input
                    type="text"
@@ -281,17 +269,17 @@ export default function ChatPage() {
                    onChange={(e) => setNewMessage(e.target.value)}
                    disabled={isTranslating}
                    placeholder={isTranslationMode ? `Type in ${LANGUAGES.find(l=>l.id===fromLang)?.name}...` : "Type a message..."}
-                   className={`flex-1 pl-4 pr-12 py-3 rounded-xl border bg-zinc-50 dark:bg-zinc-800 focus:outline-none focus:ring-2 transition-all ${
+                   className={`flex-1 pl-4 pr-12 py-3 rounded-xl border bg-white focus:outline-none focus:ring-2 transition-all text-[#9C2D41] placeholder-[#CB857C]/50 ${
                       isTranslationMode 
-                        ? 'border-purple-200 focus:border-purple-500 focus:ring-purple-100' 
-                        : 'border-zinc-200 dark:border-zinc-700 focus:ring-blue-100 focus:border-blue-500'
+                        ? 'border-[#9C2D41]/30 focus:border-[#9C2D41] focus:ring-[#9C2D41]/20' 
+                        : 'border-[#CB857C]/30 focus:ring-[#CB857C]/20 focus:border-[#CB857C]'
                    }`}
                  />
                  <button 
                    type="submit"
                    disabled={isTranslating}
-                   className={`px-5 rounded-xl font-bold text-white transition-all active:scale-95 disabled:opacity-50 ${
-                      isTranslationMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                   className={`px-5 rounded-xl font-medium text-[#FAF7F4] transition-all active:scale-95 disabled:opacity-50 ${
+                      isTranslationMode ? 'bg-[#9C2D41] hover:bg-[#CB857C]' : 'bg-[#9C2D41] hover:bg-[#CB857C]'
                    }`}
                  >
                    {isTranslating ? 'Wait...' : 'Send'}
@@ -300,10 +288,10 @@ export default function ChatPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 p-8 text-center">
-            <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center text-3xl mb-4">💬</div>
-            <h3 className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Your Family Chat</h3>
-            <p className="text-sm max-w-xs mt-2">Select a family member to start chatting.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-[#CB857C] p-8 text-center">
+            <div className="w-16 h-16 bg-[#F6CBB7]/30 rounded-full flex items-center justify-center text-3xl mb-4">💬</div>
+            <h3 className="text-lg font-medium text-[#9C2D41]">Your Family Chat</h3>
+            <p className="text-sm max-w-xs mt-2 font-light">Select a family member to start chatting.</p>
           </div>
         )}
       </div>

@@ -1,18 +1,15 @@
 'use client';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth';
-import { auth, googleProvider, db } from '@/library/firebase'; // Ensure path is correct
+import { auth, googleProvider, db } from '@/library/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { useRouter } from 'next/navigation';
 
-// <any> is now VALID because this is a .tsx file!
 const AuthContext = createContext<any>({});
 
 export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -27,8 +24,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         if (docSnap.exists()) {
           setUserData(docSnap.data()); 
         } else {
-          // USER IS LOGGED IN BUT HAS NO PROFILE -> ONBOARDING
-          router.push('/onboarding');
+          // USER IS LOGGED IN BUT HAS NO PROFILE
+          // Don't redirect here - let page.tsx handle it
+          setUserData(null);
         }
       } else {
         setUser(null);
@@ -38,7 +36,7 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   const googleSignIn = () => {
     signInWithPopup(auth, googleProvider);
