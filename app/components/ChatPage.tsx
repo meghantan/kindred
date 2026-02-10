@@ -46,8 +46,8 @@ const LANGUAGES = [
 ];
 
 export default function ChatPage({ preselectedMember }: ChatPageProps) {
-  const { user, userData } = useAuth();
-  const [familyMembers, setFamilyMembers] = useState<UserProfile[]>([]);
+  const { user, userData, familyMembers, getRelationship } = useAuth();
+  
   const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
   const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,21 +62,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const [isTranslating, setIsTranslating] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Fetch family members
-  useEffect(() => {
-    if (!userData?.familyId) return;
-    const q = query(collection(db, "users"), where("familyId", "==", userData.familyId));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const members: UserProfile[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.uid !== user?.uid) members.push({ uid: data.uid, ...data } as UserProfile);
-      });
-      setFamilyMembers(members);
-    });
-    return () => unsubscribe();
-  }, [userData, user]);
 
   // Fetch unread notifications
   useEffect(() => {
@@ -93,14 +78,15 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     return () => unsubscribe();
   }, [user]);
 
-  // Build chat previews with last message
+  // Build chat previews
   useEffect(() => {
-    if (!user || familyMembers.length === 0) return;
+    if (!user || !familyMembers || familyMembers.length === 0) return;
 
     const fetchChatPreviews = async () => {
       const previews: ChatPreview[] = [];
+      const otherMembers = familyMembers.filter((m: any) => m.uid !== user.uid);
 
-      for (const member of familyMembers) {
+      for (const member of otherMembers) {
         const chatId = [user.uid, member.uid].sort().join('_');
         const q = query(
           collection(db, "chats", chatId, "messages"), 
@@ -109,18 +95,16 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
 
         const snapshot = await getDocs(q);
         const lastMsg = snapshot.docs[0];
-        
         const unreadCount = unreadNotifications.filter(n => n.senderId === member.uid).length;
 
         previews.push({
-          member,
+          member: member as UserProfile,
           lastMessage: lastMsg ? lastMsg.data().text : "No messages yet",
           lastMessageTime: lastMsg ? lastMsg.data().createdAt : null,
           unreadCount
         });
       }
 
-      // Sort by most recent message
       previews.sort((a, b) => {
         if (!a.lastMessageTime) return 1;
         if (!b.lastMessageTime) return -1;
@@ -133,10 +117,9 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     fetchChatPreviews();
   }, [familyMembers, user, unreadNotifications]);
 
-  // Clear notifications when selecting a chat
+  // Clear notifications
   useEffect(() => {
     if (!selectedMember || !user || unreadNotifications.length === 0) return;
-
     const clearCurrentChatNotifications = async () => {
       const relevantNotifs = unreadNotifications.filter(n => n.senderId === selectedMember.uid);
       const promises = relevantNotifs.map(n => 
@@ -144,11 +127,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       );
       await Promise.all(promises);
     };
-
     clearCurrentChatNotifications();
   }, [selectedMember, unreadNotifications, user]);
 
-  // Fetch messages for selected chat
+  // Fetch messages
   useEffect(() => {
     if (!selectedMember || !user) return;
     const chatId = [user.uid, selectedMember.uid].sort().join('_');
@@ -189,7 +171,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
           "swee": "beautiful/excellent",
           "sian": "boring/tired",
         };
-        
         const lowerText = text.toLowerCase().trim();
         if (commonHokkien[lowerText]) {
           return toLang === "gen-z" 
@@ -197,7 +178,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
             : `[Elder English]: ${commonHokkien[lowerText]}?`;
         }
       }
-
       if (fromLang === "gen-z" && toLang === "elder-english") {
         translated = text
           .replace(/fire/gi, "excellent")
@@ -273,7 +253,8 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       {/* LEFT SIDEBAR */}
       <div className="w-[420px] border-r border-[#CB857C]/10 bg-white hidden md:flex flex-col shadow-sm">
         <div className="px-10 py-12 border-b border-[#CB857C]/10">
-          <h2 className="text-4xl font-light text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>
+          {/* UPDATED: Text-5xl for sidebar header */}
+          <h2 className="text-4xl font-light text-[#9C2D41] mb-3 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
             Family Members
           </h2>
           <p className="text-base text-[#CB857C]/80 font-normal">
@@ -321,7 +302,7 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                   {preview.lastMessage}
                 </p>
                 <span className="inline-block px-3 py-1 rounded-full text-[10px] bg-[#CB857C]/10 text-[#CB857C] uppercase font-bold tracking-wider">
-                  {preview.member.role}
+                  {getRelationship(preview.member.uid)}
                 </span>
               </div>
             </button>
@@ -405,24 +386,46 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                   <span className="text-sm font-semibold text-[#9C2D41] uppercase tracking-wider whitespace-nowrap">
                     Translate
                   </span>
+                  
+                  {/* Dropdown Container */}
                   <div className="flex items-center gap-5 flex-1">
-                    <select 
-                      value={fromLang} 
-                      onChange={(e) => setFromLang(e.target.value)}
-                      className="flex-1 text-sm px-4 py-3 rounded-2xl border-[#CB857C]/30 bg-white text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/20 outline-none shadow-sm font-medium"
-                    >
-                      {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                    </select>
+                    
+                    {/* FROM LANG DROPDOWN */}
+                    <div className="relative flex-1">
+                      <select 
+                        value={fromLang} 
+                        onChange={(e) => setFromLang(e.target.value)}
+                        className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none border-2 border-[#CB857C]/20 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/30 transition-all appearance-none shadow-sm font-normal cursor-pointer"
+                      >
+                        {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9C2D41]">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
                     <svg className="w-5 h-5 text-[#CB857C] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
-                    <select 
-                      value={toLang} 
-                      onChange={(e) => setToLang(e.target.value)}
-                      className="flex-1 text-sm px-4 py-3 rounded-2xl border-[#CB857C]/30 bg-white text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/20 outline-none shadow-sm font-medium"
-                    >
-                      {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                    </select>
+                    
+                    {/* TO LANG DROPDOWN */}
+                    <div className="relative flex-1">
+                      <select 
+                        value={toLang} 
+                        onChange={(e) => setToLang(e.target.value)}
+                        className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none border-2 border-[#CB857C]/20 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/30 transition-all appearance-none shadow-sm font-normal cursor-pointer"
+                      >
+                        {LANGUAGES.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9C2D41]">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -436,7 +439,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                 
                 return (
                   <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Avatar */}
                     <div className="flex-shrink-0">
                       {sender?.photoURL ? (
                         <img 
@@ -451,7 +453,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                       )}
                     </div>
 
-                    {/* Message bubble */}
                     <div className={`max-w-[65%] px-6 py-5 rounded-[2rem] shadow-md ${
                       isMe 
                         ? 'bg-[#9C2D41] text-white rounded-tr-sm text-[15px]' 
@@ -511,7 +512,8 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h3 className="text-5xl font-light text-[#9C2D41] mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+            {/* UPDATED: Text-6xl for empty state header */}
+            <h3 className="text-6xl font-light text-[#9C2D41] mb-4" style={{ fontFamily: 'Georgia, serif' }}>
               Your Family Chat
             </h3>
             <p className="text-lg text-[#CB857C]/80 font-normal max-w-lg leading-relaxed">

@@ -7,53 +7,20 @@ import {
   collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp 
 } from 'firebase/firestore';
 
-// --- SVG Components ---
+// --- ICONS ---
 const Icons = {
-  Meal: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-    </svg>
-  ),
-  Activity: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-    </svg>
-  ),
-  Errand: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-    </svg>
-  ),
-  Other: () => (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-    </svg>
-  ),
-  User: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-    </svg>
-  ),
-  Calendar: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-  ),
-  ChevronLeft: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  ),
-  ChevronRight: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  ),
-  X: () => (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
+  Meal: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+  Activity: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Errand: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>,
+  Other: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>,
+  User: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+  Calendar: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  ChevronLeft: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" /></svg>,
+  ChevronRight: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" /></svg>,
+  X: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Clock: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Users: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 };
 
 interface JioEvent {
@@ -71,34 +38,70 @@ interface JioEvent {
   familyId: string;
 }
 
-interface MemberInfo {
+interface DisplayMember {
   name: string;
   uid: string;
+  photoURL?: string;
+  generation?: number;
 }
 
+const INITIAL_FORM_STATE = {
+  title: '',
+  description: '',
+  date: '',
+  time: '',
+  category: 'meal' as JioEvent['category'],
+  visibility: 'Everyone',
+  maxParticipants: ''
+};
+
 export default function OpenJioPage() {
-  const { userData } = useAuth();
+  const { userData, familyMembers, getRelationship } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'list' | 'calendar'>('list');
   const [viewDate, setViewDate] = useState(new Date());
+  
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showParticipantsModal, setShowParticipantsModal] = useState<string | null>(null);
+  
   const [selectedEvent, setSelectedEvent] = useState<JioEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   const [jioEvents, setJioEvents] = useState<JioEvent[]>([]);
-  const [familyBranches, setFamilyBranches] = useState<Record<string, MemberInfo[]>>({});
-  const [allOtherMembers, setAllOtherMembers] = useState<MemberInfo[]>([]);
+  
+  const [visibilityGroups, setVisibilityGroups] = useState<Record<string, DisplayMember[]>>({});
+  const [memberMap, setMemberMap] = useState<Record<string, DisplayMember>>({});
 
-  const [formState, setFormState] = useState({
-    title: '',
-    description: '',
-    date: '',
-    time: '',
-    category: 'meal' as JioEvent['category'],
-    visibility: 'Everyone',
-    maxParticipants: ''
-  });
+  const [formState, setFormState] = useState(INITIAL_FORM_STATE);
+
+  // --- ICONS MAPPING (Restored for functionality) ---
+  const categorySVGs = {
+    meal: <Icons.Meal />,
+    activity: <Icons.Activity />,
+    errand: <Icons.Errand />,
+    other: <Icons.Other />
+  };
+
+  const categoryColors = { 
+    meal: 'bg-orange-50 text-orange-700 border-orange-100', 
+    activity: 'bg-green-50 text-green-700 border-green-100', 
+    errand: 'bg-blue-50 text-blue-700 border-blue-100', 
+    other: 'bg-purple-50 text-purple-700 border-purple-100' 
+  };
+
+  // --- HELPER: Time Formatter ---
+  const formatTimeDisplay = (timeStr: string) => {
+    if (!timeStr) return '';
+    if (timeStr.toLowerCase().includes('m')) return timeStr;
+    
+    const [hours, minutes] = timeStr.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; 
+    return `${h}:${minutes} ${ampm}`;
+  };
 
   useEffect(() => {
     if (!userData?.familyId) return;
@@ -117,36 +120,33 @@ export default function OpenJioPage() {
   }, [userData?.familyId]);
 
   useEffect(() => {
-    if (!userData?.familyId) return;
-    const q = query(collection(db, "users"), where("familyId", "==", userData.familyId));
-    return onSnapshot(q, (snapshot) => {
-      const branches: Record<string, MemberInfo[]> = { 'Immediate Family': [], 'Grandparents': [], 'Uncles & Aunts': [], 'Cousins': [], 'Second/Third Cousins': [] };
-      const all: MemberInfo[] = [];
+    if (!familyMembers || !userData) return;
 
-      snapshot.forEach(doc => {
-        const d = doc.data();
-        if (d.uid === userData.uid) return;
-        
-        const member = { name: d.name, uid: d.uid };
-        all.push(member);
-
-        const role = d.role?.toLowerCase() || '';
-        if (role.includes('grand')) branches['Grandparents'].push(member);
-        else if (role.includes('second') || role.includes('third')) branches['Second/Third Cousins'].push(member);
-        else if (role.includes('cousin')) branches['Cousins'].push(member);
-        else if (role.includes('uncle') || role.includes('aunt')) branches['Uncles & Aunts'].push(member);
-        else branches['Immediate Family'].push(member);
-      });
-
-      setAllOtherMembers(all);
-      setFamilyBranches(Object.fromEntries(Object.entries(branches).filter(([_, m]) => m.length > 0)));
+    const map: Record<string, DisplayMember> = {};
+    const others = familyMembers.filter((m: any) => m.uid !== userData.uid);
+    
+    familyMembers.forEach((m: any) => {
+      map[m.name] = { name: m.name, uid: m.uid, photoURL: m.photoURL, generation: m.generation };
     });
-  }, [userData]);
+    setMemberMap(map);
 
-  // Unified notification helper
-  const sendNotificationChats = async (invitedMembers: MemberInfo[], message: string) => {
+    const maxGen = Math.max(...familyMembers.map((m: any) => m.generation || 0));
+    
+    const groups: Record<string, DisplayMember[]> = {
+      'Everyone': others,
+      'Immediate Family': others.filter((m: any) => {
+        const rel = getRelationship(m.uid);
+        return ['Parent', 'Sibling', 'Child'].includes(rel);
+      }),
+      'Peers': others.filter((m: any) => m.generation === userData.generation),
+      'Youths': others.filter((m: any) => m.generation >= maxGen - 1),
+    };
+
+    setVisibilityGroups(groups);
+  }, [familyMembers, userData, getRelationship]);
+
+  const sendNotificationChats = async (invitedMembers: DisplayMember[], message: string) => {
     if (!userData || invitedMembers.length === 0) return;
-
     const promises = invitedMembers.map(async (member) => {
       const chatId = [userData.uid, member.uid].sort().join('_');
       return addDoc(collection(db, "chats", chatId, "messages"), {
@@ -155,8 +155,19 @@ export default function OpenJioPage() {
         createdAt: serverTimestamp(),
       });
     });
-
     await Promise.all(promises);
+  };
+
+  const handleOpenCreate = () => {
+    setFormState(INITIAL_FORM_STATE);
+    setIsEditing(false);
+    setShowCreateForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setShowCreateForm(false);
+    setIsEditing(false);
+    setSelectedEvent(null);
   };
 
   const handleCreateOrUpdateJio = async () => {
@@ -174,18 +185,12 @@ export default function OpenJioPage() {
         maxParticipants: formState.maxParticipants ? parseInt(formState.maxParticipants) : null,
       };
 
-      // Identify recipients
-      let membersToNotify: MemberInfo[] = [];
-      if (formState.visibility === 'Everyone') {
-        membersToNotify = allOtherMembers;
-      } else if (familyBranches[formState.visibility]) {
-        membersToNotify = familyBranches[formState.visibility];
-      }
+      const recipients = visibilityGroups[formState.visibility] || visibilityGroups['Everyone'];
 
       if (isEditing && selectedEvent) {
         await updateDoc(doc(db, "jios", selectedEvent.id), payload);
-        const updateMsg = `${userData.name} updated the details for "${formState.title}" on ${formState.date}. Please check the app for the new schedule.`;
-        await sendNotificationChats(membersToNotify, updateMsg);
+        const updateMsg = `${userData.name} updated details for "${formState.title}" on ${formState.date}.`;
+        await sendNotificationChats(recipients, updateMsg);
       } else {
         await addDoc(collection(db, "jios"), {
           ...payload,
@@ -195,33 +200,16 @@ export default function OpenJioPage() {
           familyId: userData.familyId,
           createdAt: Timestamp.now()
         });
-        const inviteMsg = `${userData.name} invited you to "${formState.title}" on ${formState.date} at ${formState.time}. Respond to their invite!`;
-        await sendNotificationChats(membersToNotify, inviteMsg);
+        const inviteMsg = `${userData.name} invited you to "${formState.title}" on ${formState.date}.`;
+        await sendNotificationChats(recipients, inviteMsg);
       }
-
-      setShowCreateForm(false);
-      setIsEditing(false);
-      setFormState({ title: '', description: '', date: '', time: '', category: 'meal', visibility: 'Everyone', maxParticipants: '' });
-    } catch (e) { 
-      console.error(e); 
-    } finally { 
-      setIsSubmitting(false); 
-    }
+      handleCloseForm();
+    } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
   };
 
   const handleDeleteJio = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this Jio?") || !selectedEvent) return;
+    if (!window.confirm("Delete this Jio?") || !selectedEvent) return;
     try {
-      let membersToNotify: MemberInfo[] = [];
-      if (selectedEvent.visibility === 'Everyone') {
-        membersToNotify = allOtherMembers;
-      } else if (familyBranches[selectedEvent.visibility]) {
-        membersToNotify = familyBranches[selectedEvent.visibility];
-      }
-
-      const cancelMsg = `${userData?.name} cancelled the activity: "${selectedEvent.title}" originally scheduled for ${selectedEvent.time} on ${selectedEvent.date.toLocaleDateString()}.`;
-      await sendNotificationChats(membersToNotify, cancelMsg);
-
       await deleteDoc(doc(db, "jios", id));
       setSelectedEvent(null);
     } catch (e) { console.error(e); }
@@ -242,111 +230,189 @@ export default function OpenJioPage() {
     setShowCreateForm(true);
   };
 
-  const handleJoinJio = async (id: string) => userData && await updateDoc(doc(db, "jios", id), { participants: arrayUnion(userData.name) });
-  const handleLeaveJio = async (id: string) => userData && await updateDoc(doc(db, "jios", id), { participants: arrayRemove(userData.name) });
-
-  const categorySVGs = {
-    meal: <Icons.Meal />,
-    activity: <Icons.Activity />,
-    errand: <Icons.Errand />,
-    other: <Icons.Other />
+  const handleJoinJio = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if(userData) await updateDoc(doc(db, "jios", id), { participants: arrayUnion(userData.name) });
   };
 
-  const categoryColors = { 
-    meal: 'bg-orange-50 text-orange-700 border-orange-200', 
-    activity: 'bg-green-50 text-green-700 border-green-200', 
-    errand: 'bg-blue-50 text-blue-700 border-blue-200', 
-    other: 'bg-purple-50 text-purple-700 border-purple-200' 
+  const handleLeaveJio = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if(userData) await updateDoc(doc(db, "jios", id), { participants: arrayRemove(userData.name) });
+  };
+
+  // --- FILTERING LOGIC ---
+  const canViewJio = (jio: JioEvent) => {
+    if (jio.creatorId === userData?.uid) return true;
+    if (jio.visibility === 'Everyone') return true;
+
+    if (jio.visibility === 'Immediate Family') {
+      const rel = getRelationship(jio.creatorId);
+      return ['Parent', 'Child', 'Sibling', 'Partner'].includes(rel);
+    }
+
+    if (jio.visibility === 'Peers') {
+      const creator = memberMap[jio.creator] || familyMembers?.find((m:any) => m.uid === jio.creatorId);
+      return creator && creator.generation === userData.generation;
+    }
+
+    if (jio.visibility === 'Youths') {
+      const maxGen = Math.max(...(familyMembers?.map((m: any) => m.generation || 0) || [0]));
+      return userData.generation >= maxGen - 1;
+    }
+
+    return true; 
   };
 
   const myJios = jioEvents.filter(e => e.creatorId === userData?.uid).sort((a,b) => b.date.getTime() - a.date.getTime());
-  const otherUpcomingJios = jioEvents.filter(e => e.creatorId !== userData?.uid && e.date >= new Date()).sort((a,b) => a.date.getTime() - b.date.getTime());
+  
+  const otherUpcomingJios = jioEvents
+    .filter(e => e.creatorId !== userData?.uid && e.date >= new Date() && canViewJio(e))
+    .sort((a,b) => a.date.getTime() - b.date.getTime());
+
+  // --- COMPONENT: Participant Face Pile ---
+  const ParticipantFacePile = ({ names, onClick }: { names: string[], onClick: (e: React.MouseEvent) => void }) => {
+    const displayNames = names.slice(0, 4);
+    const remaining = names.length - 4;
+
+    return (
+      <div onClick={onClick} className="flex -space-x-2 overflow-hidden py-1 cursor-pointer hover:scale-105 transition-transform justify-end">
+        {displayNames.map((name, i) => {
+          const member = memberMap[name];
+          const photoURL = member?.photoURL;
+          const initials = name.slice(0,2).toUpperCase();
+          return (
+            <div key={i} className="relative inline-block h-8 w-8 rounded-full ring-2 ring-white bg-white">
+              {photoURL ? (
+                <img src={photoURL} alt={name} className="h-full w-full rounded-full object-cover" />
+              ) : (
+                <div className="h-full w-full rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] flex items-center justify-center text-[9px] font-bold text-white">
+                  {initials}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {remaining > 0 && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-white bg-[#FAF7F4] text-[9px] font-bold text-[#CB857C]">
+            +{remaining}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const JioCard = ({ jio }: { jio: JioEvent }) => {
+    const isCreator = jio.creatorId === userData?.uid;
+    const hasJoined = jio.participants.includes(userData?.name || '');
+    
+    return (
+      <div 
+        onClick={() => setSelectedEvent(jio)} 
+        className="bg-white rounded-[2.5rem] border border-[#CB857C]/10 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer relative"
+      >
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-4">
+              <span className={`px-3 py-1.5 rounded-xl text-[11px] font-medium tracking-wider uppercase border flex items-center gap-1.5 ${categoryColors[jio.category]}`}>
+                {categorySVGs[jio.category]} {jio.category}
+              </span>
+              <span className="text-xs text-[#CB857C] font-normal">
+                by <span className="text-[#9C2D41] font-medium bg-[#F6CBB7]/20 px-2 py-0.5 rounded-md">{jio.creator}</span>
+              </span>
+            </div>
+            
+            <h3 className="text-3xl font-light text-[#9C2D41] mb-3 leading-tight group-hover:text-[#852233] transition-colors" style={{ fontFamily: 'Georgia, serif' }}>
+              {jio.title}
+            </h3>
+            
+            <p className="text-base text-[#CB857C]/80 line-clamp-2 mb-5 font-normal leading-relaxed">
+              {jio.description}
+            </p>
+
+            <div className="flex items-center gap-5 text-sm text-[#CB857C] font-medium">
+               <div className="flex items-center gap-2 bg-[#FAF7F4] px-3 py-1.5 rounded-xl border border-[#CB857C]/10">
+                 <Icons.Calendar /> {jio.date.toLocaleDateString()}
+               </div>
+               <div className="flex items-center gap-2 bg-[#FAF7F4] px-3 py-1.5 rounded-xl border border-[#CB857C]/10">
+                 <Icons.Clock /> {formatTimeDisplay(jio.time)}
+               </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end justify-between min-w-[150px] border-l border-[#FAF7F4] pl-8 md:border-l border-[#CB857C]/10">
+             <div className="text-right mb-6 w-full">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setShowParticipantsModal(jio.id); }}
+                  className="text-xs font-bold text-[#9C2D41] block mb-2 hover:underline uppercase tracking-wide ml-auto"
+                >
+                  {jio.participants.length} Going
+                </button>
+                <ParticipantFacePile 
+                  names={jio.participants} 
+                  onClick={(e) => { e.stopPropagation(); setShowParticipantsModal(jio.id); }} 
+                />
+             </div>
+
+             {isCreator ? (
+               <button onClick={(e) => { e.stopPropagation(); openEditForm(jio); }} className="w-full py-3 px-5 bg-[#FAF7F4] text-[#CB857C] text-sm font-medium rounded-2xl hover:bg-[#F6CBB7]/20 hover:text-[#9C2D41] transition-colors">Edit</button>
+             ) : hasJoined ? (
+                <button onClick={(e) => handleLeaveJio(e, jio.id)} className="w-full py-3 px-5 bg-[#FFF1F2] text-[#BE123C] text-sm font-medium rounded-2xl border border-[#BE123C]/20 hover:bg-[#FFE4E6] transition-colors">Leave</button>
+             ) : (
+                <button onClick={(e) => handleJoinJio(e, jio.id)} className="w-full py-3 px-5 bg-[#9C2D41] text-white text-sm font-medium rounded-2xl shadow-md hover:shadow-lg hover:bg-[#852233] active:scale-95 transition-all">Join</button>
+             )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="max-w-6xl mx-auto px-8 py-12 min-h-screen bg-[#FAF7F4]">
+    <div className="max-w-6xl mx-auto px-8 py-16 min-h-screen bg-[#FAF7F4]">
       {/* Header */}
-      <div className="flex justify-between items-start mb-12">
+      <div className="flex justify-between items-end mb-16">
         <div>
-          <h1 className="text-5xl font-normal text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>Open Jio</h1>
-          <p className="text-[#CB857C] text-base font-normal">Stay connected through shared experiences</p>
+          <h1 className="text-6xl font-light text-[#9C2D41] mb-3 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>Open Jio</h1>
+          <p className="text-[#CB857C] text-lg font-normal">Connect through shared experiences</p>
         </div>
-        <div className="flex gap-3 items-start">
-          <div className="flex bg-white p-1 rounded-2xl shadow-md border-2 border-[#CB857C]/20">
-            <button 
-              onClick={() => setActiveTab('list')} 
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'list' ? 'bg-[#9C2D41] text-white shadow-sm' : 'text-[#9C2D41] hover:text-[#9C2D41]'}`}
-            >
-              List View
-            </button>
-            <button 
-              onClick={() => setActiveTab('calendar')} 
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'calendar' ? 'bg-[#9C2D41] text-white shadow-sm' : 'text-[#9C2D41] hover:text-[#9C2D41]'}`}
-            >
-              Calendar
-            </button>
+        <div className="flex gap-4 items-center">
+          <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-[#CB857C]/20">
+            <button onClick={() => setActiveTab('list')} className={`px-8 py-3 rounded-xl text-base font-medium transition-all ${activeTab === 'list' ? 'bg-[#9C2D41] text-white shadow-md' : 'text-[#9C2D41] hover:bg-[#F6CBB7]/10'}`}>List</button>
+            <button onClick={() => setActiveTab('calendar')} className={`px-8 py-3 rounded-xl text-base font-medium transition-all ${activeTab === 'calendar' ? 'bg-[#9C2D41] text-white shadow-md' : 'text-[#9C2D41] hover:bg-[#F6CBB7]/10'}`}>Calendar</button>
           </div>
-          <button 
-            onClick={() => { setIsEditing(false); setShowCreateForm(true); }} 
-            className="bg-[#9C2D41] text-white px-7 py-2.5 rounded-2xl font-semibold shadow-lg hover:shadow-xl active:scale-95 transition-all"
-          >
-            Create Jio
+          <button onClick={handleOpenCreate} className="bg-[#9C2D41] text-white px-8 py-4 rounded-2xl font-medium text-base shadow-md hover:shadow-lg hover:bg-[#852233] active:scale-95 transition-all tracking-wide flex items-center gap-2">
+            <Icons.Plus /> Create
           </button>
         </div>
       </div>
 
       {activeTab === 'calendar' ? (
-        /* --- CALENDAR VIEW --- */
-        <div className="bg-white rounded-3xl border-2 border-[#CB857C]/20 overflow-hidden shadow-xl">
-          <div className="p-8 flex justify-between items-center bg-[#FAF7F4] border-b border-[#CB857C]/10">
-            <h2 className="text-2xl font-light text-[#9C2D41]" style={{ fontFamily: 'Georgia, serif' }}>
+        <div className="bg-white rounded-[3rem] border border-[#CB857C]/20 overflow-hidden shadow-lg">
+          <div className="p-10 flex justify-between items-center bg-white border-b border-[#CB857C]/10">
+            <h2 className="text-3xl font-light text-[#9C2D41]" style={{ fontFamily: 'Georgia, serif' }}>
               {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
             </h2>
             <div className="flex gap-3">
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} className="p-2 text-[#9C2D41] hover:bg-white rounded-xl transition-colors">
-                <Icons.ChevronLeft />
-              </button>
-              <button onClick={() => setViewDate(new Date())} className="px-4 py-2 text-sm font-medium border border-[#CB857C]/30 rounded-xl text-[#9C2D41] hover:bg-white transition-colors">
-                Today
-              </button>
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} className="p-2 text-[#9C2D41] hover:bg-white rounded-xl transition-colors">
-                <Icons.ChevronRight />
-              </button>
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1))} className="p-3 text-[#9C2D41] hover:bg-[#FAF7F4] rounded-xl border border-[#CB857C]/20 transition-all"><Icons.ChevronLeft /></button>
+              <button onClick={() => setViewDate(new Date())} className="px-6 py-2 text-sm font-bold border border-[#CB857C]/20 rounded-xl text-[#9C2D41] hover:bg-[#FAF7F4] transition-all">Today</button>
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1))} className="p-3 text-[#9C2D41] hover:bg-[#FAF7F4] rounded-xl border border-[#CB857C]/20 transition-all"><Icons.ChevronRight /></button>
             </div>
           </div>
-          <div className="grid grid-cols-7 text-center py-4 border-b border-[#CB857C]/10 text-xs font-medium uppercase text-[#CB857C]/80 tracking-wider bg-[#FAF7F4]">
+          <div className="grid grid-cols-7 text-center py-6 border-b border-[#CB857C]/10 text-xs font-bold uppercase text-[#CB857C] tracking-widest bg-[#FAF7F4]/50">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <div key={d}>{d}</div>)}
           </div>
-          <div className="grid grid-cols-7">
-            {Array.from({ length: new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay() }).map((_, i) => 
-              <div key={i} className="h-32 border-b border-r border-[#FAF7F4] bg-[#FAF7F4]/50" />
-            )}
+          <div className="grid grid-cols-7 bg-[#FAF7F4]/30">
+            {Array.from({ length: new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay() }).map((_, i) => <div key={i} className="h-40 border-b border-r border-[#CB857C]/10 bg-[#FAF7F4]/50" />)}
             {Array.from({ length: new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate() }).map((_, i) => {
               const day = i + 1; 
-              const dayJios = jioEvents.filter(e => 
-                e.date.getDate() === day && 
-                e.date.getMonth() === viewDate.getMonth() && 
-                e.date.getFullYear() === viewDate.getFullYear()
-              );
+              const dayJios = jioEvents.filter(e => e.date.getDate() === day && e.date.getMonth() === viewDate.getMonth() && e.date.getFullYear() === viewDate.getFullYear());
               const isToday = new Date().toDateString() === new Date(viewDate.getFullYear(), viewDate.getMonth(), day).toDateString();
-              
               return (
-                <div key={day} className="h-32 border-b border-r border-[#FAF7F4] p-3 hover:bg-[#F6CBB7]/10 transition-colors">
-                  <span className={`text-sm font-medium inline-flex items-center justify-center ${
-                    isToday 
-                      ? 'bg-[#9C2D41] text-white w-7 h-7 rounded-full' 
-                      : 'text-[#CB857C]'
-                  }`}>
-                    {day}
-                  </span>
-                  <div className="mt-2 space-y-1 overflow-y-auto max-h-[85px]">
+                <div key={day} className={`h-40 border-b border-r border-[#CB857C]/10 p-4 hover:bg-white transition-all group ${isToday ? 'bg-white ring-inset ring-2 ring-[#9C2D41]/10' : ''}`}>
+                  <span className={`text-base font-bold inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${isToday ? 'bg-[#9C2D41] text-white shadow-md' : 'text-[#CB857C] group-hover:text-[#9C2D41]'}`}>{day}</span>
+                  <div className="space-y-1.5 overflow-y-auto max-h-[90px] pr-1 custom-scrollbar">
                     {dayJios.map(jio => (
-                      <button 
-                        key={jio.id} 
-                        onClick={() => setSelectedEvent(jio)} 
-                        className="w-full text-left text-[10px] p-1.5 rounded-lg bg-[#F6CBB7]/20 border border-[#CB857C]/20 text-[#9C2D41] truncate font-medium flex items-center gap-1 hover:bg-[#F6CBB7]/30 transition-colors"
-                      >
-                        {categorySVGs[jio.category]} 
-                        <span className="truncate">{jio.title}</span>
+                      <button key={jio.id} onClick={() => setSelectedEvent(jio)} className="w-full text-left text-xs py-2 px-2.5 rounded-xl bg-white border border-[#CB857C]/20 text-[#9C2D41] truncate font-bold flex items-center gap-2 hover:border-[#9C2D41]/40 hover:shadow-sm transition-all shadow-sm">
+                        <span className="opacity-80 scale-90">{categorySVGs[jio.category]}</span><span className="truncate">{jio.title}</span>
                       </button>
                     ))}
                   </div>
@@ -356,322 +422,83 @@ export default function OpenJioPage() {
           </div>
         </div>
       ) : (
-        /* --- LIST VIEW --- */
-        <div className="space-y-12">
+        <div className="space-y-16">
           {myJios.length > 0 && (
             <section>
-              <h2 className="text-2xl font-normal text-[#9C2D41] mb-6 flex items-center gap-3" style={{ fontFamily: 'Georgia, serif' }}>
-                <Icons.User /> My Jios
+              <h2 className="text-3xl font-light text-[#9C2D41] mb-8 flex items-center gap-4 border-b border-[#CB857C]/10 pb-4" style={{ fontFamily: 'Georgia, serif' }}>
+                <span className="p-2.5 bg-[#F6CBB7]/20 rounded-2xl"><Icons.User /></span> My Jios
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {myJios.map(jio => (
-                  <div 
-                    key={jio.id} 
-                    onClick={() => setSelectedEvent(jio)} 
-                    className="bg-white rounded-2xl border-2 border-[#CB857C]/20 p-6 shadow-md hover:shadow-lg cursor-pointer transition-all"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 ${categoryColors[jio.category]}`}>
-                        {categorySVGs[jio.category]} {jio.category.toUpperCase()}
-                      </span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openEditForm(jio); }} 
-                        className="text-[#9C2D41] text-sm font-semibold hover:underline"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                    <h3 className="text-xl font-medium text-[#9C2D41] mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-                      {jio.title}
-                    </h3>
-                    <p className="text-sm text-[#CB857C] font-normal">
-                      {jio.date.toLocaleDateString()} • {jio.time}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">{myJios.map(jio => <JioCard key={jio.id} jio={jio} />)}</div>
             </section>
           )}
-
           <section>
-            <h2 className="text-2xl font-normal text-[#9C2D41] mb-6 flex items-center gap-3" style={{ fontFamily: 'Georgia, serif' }}>
-              <Icons.Calendar /> Family Activity Feed
+            <h2 className="text-3xl font-light text-[#9C2D41] mb-8 flex items-center gap-4 border-b border-[#CB857C]/10 pb-4" style={{ fontFamily: 'Georgia, serif' }}>
+               <span className="p-2.5 bg-[#F6CBB7]/20 rounded-2xl"><Icons.Calendar /></span> Family Activity Feed
             </h2>
-            <div className="space-y-6">
-              {otherUpcomingJios.map(jio => (
-                <div 
-                  key={jio.id} 
-                  onClick={() => setSelectedEvent(jio)} 
-                  className="bg-white rounded-2xl border-2 border-[#CB857C]/20 p-8 shadow-md hover:shadow-lg cursor-pointer transition-all"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4 mb-3">
-                        <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 ${categoryColors[jio.category]}`}>
-                          {categorySVGs[jio.category]} {jio.category.toUpperCase()}
-                        </span>
-                        <span className="text-sm text-[#CB857C]">
-                          by <span className="font-semibold text-[#9C2D41]">{jio.creator}</span>
-                        </span>
-                      </div>
-                      <h3 className="text-2xl font-medium text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>
-                        {jio.title}
-                      </h3>
-                      <p className="text-[#CB857C] leading-relaxed mb-4">{jio.description}</p>
-                      <div className="flex gap-6 text-sm text-[#CB857C] font-normal">
-                        <span>🗓️ {jio.date.toLocaleDateString()}</span>
-                        <span>🕐 {jio.time}</span>
-                        <span className="text-[#9C2D41] font-semibold">👥 {jio.participants.length} Joined</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <div className="grid grid-cols-1 gap-8">{otherUpcomingJios.map(jio => <JioCard key={jio.id} jio={jio} />)}</div>
           </section>
         </div>
       )}
 
       {/* CREATE / EDIT MODAL */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-10 w-full max-w-lg shadow-2xl border border-[#CB857C]/20 relative">
-            <button 
-              onClick={() => { setShowCreateForm(false); setIsEditing(false); }} 
-              className="absolute top-6 right-6 text-[#CB857C] hover:text-[#9C2D41] transition-colors"
-            >
-              <Icons.X />
-            </button>
-            
-            <div className="mb-8">
-              <h2 className="text-3xl font-normal text-[#9C2D41] mb-2" style={{ fontFamily: 'Georgia, serif' }}>
-                {isEditing ? 'Edit Jio' : 'Create New Jio'}
-              </h2>
-              <p className="text-[#CB857C] text-sm font-normal">Plan your next family gathering</p>
+        <div className="fixed inset-0 bg-[#9C2D41]/10 backdrop-blur-md flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-2xl shadow-2xl border border-[#CB857C]/20 relative">
+            <button onClick={handleCloseForm} className="absolute top-8 right-8 text-[#CB857C] hover:text-[#9C2D41] p-2 hover:bg-[#FAF7F4] rounded-full transition-all"><Icons.X /></button>
+            <div className="mb-10 text-center">
+              <h2 className="text-4xl font-light text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>{isEditing ? 'Edit Jio' : 'Create New Jio'}</h2>
+              <p className="text-[#CB857C] text-lg font-light">Plan your next family gathering</p>
             </div>
-
-            <div className="space-y-5 mb-8">
-              <div>
-                <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                  Activity Title
-                </label>
-                <input 
-                  type="text" 
-                  value={formState.title} 
-                  onChange={e => setFormState({...formState, title: e.target.value})} 
-                  className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none focus:ring-2 focus:ring-[#9C2D41]/30 border-2 border-[#CB857C]/20 text-[#9C2D41] font-normal transition-all shadow-sm"
-                  placeholder="e.g., Sunday Brunch"
-                />
+            <div className="space-y-8 mb-10">
+              <div><label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Activity Title</label><input type="text" value={formState.title} onChange={e => setFormState({...formState, title: e.target.value})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none focus:ring-2 focus:ring-[#9C2D41]/20 border border-transparent focus:border-[#CB857C]/40 text-[#9C2D41] text-lg font-normal transition-all" placeholder="e.g., Sunday Brunch" /></div>
+              <div><label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Description</label><textarea value={formState.description} onChange={e => setFormState({...formState, description: e.target.value})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none border border-transparent focus:border-[#CB857C]/40 resize-none text-[#9C2D41] transition-all focus:ring-2 focus:ring-[#9C2D41]/20 text-base font-normal" rows={3} placeholder="Add details..." /></div>
+              <div className="grid grid-cols-2 gap-6">
+                <div><label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Date</label><input type="date" value={formState.date} onChange={e => setFormState({...formState, date: e.target.value})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl border border-transparent focus:border-[#CB857C]/40 text-[#9C2D41] outline-none focus:ring-2 focus:ring-[#9C2D41]/20 font-normal" /></div>
+                <div><label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Time</label><input type="time" value={formState.time} onChange={e => setFormState({...formState, time: e.target.value})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl border border-transparent focus:border-[#CB857C]/40 text-[#9C2D41] outline-none focus:ring-2 focus:ring-[#9C2D41]/20 font-normal" /></div>
               </div>
-
-              <div>
-                <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                  Description
-                </label>
-                <textarea 
-                  value={formState.description} 
-                  onChange={e => setFormState({...formState, description: e.target.value})} 
-                  className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none border-2 border-[#CB857C]/20 resize-none text-[#9C2D41] transition-all focus:ring-2 focus:ring-[#9C2D41]/30 shadow-sm" 
-                  rows={3}
-                  placeholder="Add details about your activity..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                    Date
-                  </label>
-                  <input 
-                    type="date" 
-                    value={formState.date} 
-                    onChange={e => setFormState({...formState, date: e.target.value})} 
-                    className="w-full px-4 py-3.5 bg-white rounded-2xl border-2 border-[#CB857C]/20 text-[#9C2D41] outline-none focus:ring-2 focus:ring-[#9C2D41]/30 transition-all shadow-sm font-normal"
-                  />
+                  <label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Category</label>
+                  <div className="relative"><select value={formState.category} onChange={e => setFormState({...formState, category: e.target.value as any})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none border border-transparent focus:border-[#CB857C]/40 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/20 transition-all appearance-none font-normal cursor-pointer"><option value="meal">Meal</option><option value="activity">Activity</option><option value="errand">Errand</option><option value="other">Other</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#9C2D41]"><Icons.ChevronRight /></div></div>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                    Time
-                  </label>
-                  <input 
-                    type="time" 
-                    value={formState.time} 
-                    onChange={e => setFormState({...formState, time: e.target.value})} 
-                    className="w-full px-4 py-3.5 bg-white rounded-2xl border-2 border-[#CB857C]/20 text-[#9C2D41] outline-none focus:ring-2 focus:ring-[#9C2D41]/30 transition-all shadow-sm font-normal"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                    Category
-                  </label>
+                  <label className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest block mb-2 ml-1">Visibility</label>
                   <div className="relative">
-                    <select 
-                      value={formState.category} 
-                      onChange={e => setFormState({...formState, category: e.target.value as any})} 
-                      className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none border-2 border-[#CB857C]/20 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/30 transition-all appearance-none shadow-sm font-normal cursor-pointer"
-                    >
-                      <option value="meal">Meal</option>
-                      <option value="activity">Activity</option>
-                      <option value="errand">Errand</option>
-                      <option value="other">Other</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9C2D41]">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#9C2D41] uppercase tracking-wider block mb-2">
-                    Visibility
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={formState.visibility} 
-                      onChange={e => setFormState({...formState, visibility: e.target.value})} 
-                      className="w-full px-4 py-3.5 bg-white rounded-2xl outline-none border-2 border-[#CB857C]/20 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/30 transition-all appearance-none shadow-sm font-normal cursor-pointer"
-                    >
-                      <option value="Everyone">Everyone</option>
-                      {Object.keys(familyBranches).map(branchName => 
-                        <option key={branchName} value={branchName}>{branchName}</option>
-                      )}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#9C2D41]">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
+                    <select value={formState.visibility} onChange={e => setFormState({...formState, visibility: e.target.value})} className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none border border-transparent focus:border-[#CB857C]/40 text-[#9C2D41] focus:ring-2 focus:ring-[#9C2D41]/20 transition-all appearance-none font-normal cursor-pointer">{Object.keys(visibilityGroups).map(name => <option key={name} value={name}>{name}</option>)}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-5 text-[#9C2D41]"><Icons.ChevronRight /></div>
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <button 
-                onClick={() => { setShowCreateForm(false); setIsEditing(false); }} 
-                className="flex-1 py-4 bg-white text-[#9C2D41] rounded-2xl font-semibold border-2 border-[#CB857C]/30 hover:bg-[#FAF7F4] transition-all shadow-sm"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleCreateOrUpdateJio} 
-                disabled={isSubmitting} 
-                className="flex-1 bg-[#9C2D41] text-white py-4 rounded-2xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all active:scale-95"
-              >
-                {isEditing ? 'Update Jio' : 'Launch Jio'}
-              </button>
+            <div className="flex gap-6 pt-6 border-t border-[#CB857C]/10">
+              <button onClick={handleCloseForm} className="flex-1 py-4 bg-white text-[#9C2D41] rounded-2xl font-bold border-2 border-[#CB857C]/20 hover:bg-[#FAF7F4] hover:border-[#9C2D41]/20 transition-all uppercase tracking-widest text-xs">Cancel</button>
+              <button onClick={handleCreateOrUpdateJio} disabled={isSubmitting} className="flex-1 bg-[#9C2D41] text-white py-4 rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:bg-[#852233] disabled:opacity-50 transition-all active:scale-95 uppercase tracking-widest text-xs">{isEditing ? 'Update' : 'Launch'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* DETAILS MODAL */}
-      {selectedEvent && !showCreateForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-10 w-full max-w-lg shadow-2xl border border-[#CB857C]/20 relative">
-            <button 
-              onClick={() => setSelectedEvent(null)} 
-              className="absolute top-6 right-6 text-[#CB857C] hover:text-[#9C2D41] transition-colors"
-            >
-              <Icons.X />
-            </button>
-            
-            <div className="text-center mb-8">
-              <div className="inline-flex px-3 py-1.5 rounded-xl bg-[#F6CBB7]/20 text-[#9C2D41] font-medium text-xs mb-4 uppercase tracking-wider border border-[#CB857C]/20 items-center gap-1.5">
-                {categorySVGs[selectedEvent.category]} {selectedEvent.category}
-              </div>
-              <h2 className="text-3xl font-light text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>
-                {selectedEvent.title}
-              </h2>
-              {selectedEvent.description && (
-                <p className="text-[#CB857C]/80 leading-relaxed">{selectedEvent.description}</p>
-              )}
-            </div>
-
-            <div className="space-y-5 mb-10">
-              <div className="flex items-center gap-4 bg-[#FAF7F4] p-5 rounded-2xl border border-[#CB857C]/10">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white rounded-full flex items-center justify-center font-medium shadow-md text-lg">
-                  {selectedEvent.creator[0]}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-[#CB857C]/80 uppercase tracking-wider">Organized by</p>
-                  <p className="font-normal text-[#9C2D41] mt-0.5">{selectedEvent.creator}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-[#FAF7F4] p-5 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-xs font-medium text-[#CB857C]/80 uppercase tracking-wider mb-2">Time</p>
-                  <p className="font-normal text-[#9C2D41]">{selectedEvent.time}</p>
-                </div>
-                <div className="bg-[#FAF7F4] p-5 rounded-2xl border border-[#CB857C]/10 text-center">
-                  <p className="text-xs font-medium text-[#CB857C]/80 uppercase tracking-wider mb-2">Date</p>
-                  <p className="font-normal text-[#9C2D41]">{selectedEvent.date.toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              <div className="bg-[#FAF7F4] p-5 rounded-2xl border border-[#CB857C]/10">
-                <p className="text-xs font-medium text-[#CB857C]/80 uppercase tracking-wider mb-3">
-                  Participants ({selectedEvent.participants.length})
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedEvent.participants.map((person, idx) => (
-                    <span 
-                      key={idx} 
-                      className="px-3 py-1.5 bg-white border border-[#CB857C]/20 rounded-full text-xs font-medium text-[#9C2D41]"
-                    >
-                      {person}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              {selectedEvent.creatorId === userData?.uid ? (
-                <>
-                  <button 
-                    onClick={() => { handleDeleteJio(selectedEvent!.id); }} 
-                    className="flex-1 py-3.5 bg-rose-50 text-rose-600 rounded-2xl font-medium border border-rose-100 hover:bg-rose-100 transition-all"
-                  >
-                    Delete
-                  </button>
-                  <button 
-                    onClick={() => { openEditForm(selectedEvent!); }} 
-                    className="flex-1 bg-[#9C2D41] text-white py-3.5 rounded-2xl font-medium shadow-md hover:shadow-lg transition-all"
-                  >
-                    Edit
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button 
-                    onClick={() => setSelectedEvent(null)} 
-                    className="flex-1 py-3.5 bg-[#FAF7F4] text-[#CB857C] rounded-2xl font-medium border border-[#CB857C]/20 hover:bg-[#F6CBB7]/20 transition-all"
-                  >
-                    Close
-                  </button>
-                  {selectedEvent.participants.includes(userData?.name || '') ? (
-                    <button 
-                      onClick={() => { handleLeaveJio(selectedEvent!.id); setSelectedEvent(null); }} 
-                      className="flex-1 py-3.5 bg-rose-50 text-rose-600 rounded-2xl font-medium border border-rose-100 shadow-sm hover:bg-rose-100 transition-all"
-                    >
-                      Leave
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => { handleJoinJio(selectedEvent!.id); setSelectedEvent(null); }} 
-                      className="flex-1 py-3.5 bg-[#9C2D41] text-white rounded-2xl font-medium shadow-md hover:shadow-lg transition-all"
-                    >
-                      Join
-                    </button>
-                  )}
-                </>
-              )}
+      {showParticipantsModal && (
+        <div className="fixed inset-0 bg-[#9C2D41]/10 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm shadow-2xl border border-[#CB857C]/20 relative">
+            <button onClick={() => setShowParticipantsModal(null)} className="absolute top-6 right-6 text-[#CB857C] hover:text-[#9C2D41]"><Icons.X /></button>
+            <h3 className="text-2xl font-light text-[#9C2D41] mb-6 text-center border-b border-[#CB857C]/10 pb-4" style={{ fontFamily: 'Georgia, serif' }}>Guest List</h3>
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+              {jioEvents.find(j => j.id === showParticipantsModal)?.participants.map((name, i) => {
+                const member = memberMap[name];
+                const isMe = member?.uid === userData?.uid;
+                const relationship = (member && !isMe) ? getRelationship(member.uid) : "";
+                return (
+                  <div key={i} className="flex items-center justify-between p-3 hover:bg-[#FAF7F4] rounded-2xl transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-[#9C2D41] to-[#CB857C] flex items-center justify-center text-white font-bold text-xs shadow-sm">
+                        {member?.photoURL ? <img src={member.photoURL} className="h-full w-full object-cover" /> : name.slice(0,2).toUpperCase()}
+                      </div>
+                      <span className="text-[#9C2D41] font-medium text-base">{name}</span>
+                    </div>
+                    {isMe ? <span className="text-[10px] uppercase font-bold text-[#CB857C] bg-[#F6CBB7]/20 px-2 py-1 rounded-lg">You</span> : relationship && <span className="text-[10px] uppercase font-bold text-[#CB857C] bg-[#F6CBB7]/20 px-2 py-1 rounded-lg">{relationship}</span>}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

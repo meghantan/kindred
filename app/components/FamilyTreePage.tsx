@@ -35,10 +35,10 @@ const UserAvatar = ({
   return (
     <div 
       onClick={onClick}
-      className={`w-16 h-16 rounded-full flex items-center justify-center border-3 shadow-md bg-gradient-to-br relative overflow-hidden shrink-0 transition-all hover:scale-105 hover:shadow-lg ${
+      className={`w-16 h-16 rounded-full flex items-center justify-center border-3 shadow-sm relative overflow-hidden shrink-0 transition-all ${
         isMe 
-          ? 'border-[#F6CBB7] ring-3 ring-[#9C2D41]/30 from-[#9C2D41] via-[#CB857C] to-[#F6CBB7]' 
-          : 'border-white from-[#9C2D41] to-[#CB857C] cursor-pointer'
+          ? 'border-[#F6CBB7]' 
+          : 'border-white bg-gradient-to-br from-[#9C2D41] to-[#CB857C]'
       }`}
     >
       {!imageError && url ? (
@@ -46,17 +46,12 @@ const UserAvatar = ({
       ) : (
         <span className="text-base font-medium text-[#FAF7F4]">{initials}</span>
       )}
-      {isMe && (
-        <div className="absolute -top-0.5 -right-0.5 bg-[#9C2D41] text-[#FAF7F4] text-[8px] font-semibold px-1.5 py-0.5 rounded-full shadow-md">
-          ME
-        </div>
-      )}
     </div>
   );
 };
 
 export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps) {
-  const { userData, user } = useAuth();
+  const { userData, user, getRelationship } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,7 +107,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       const node = itemsRef.current[id];
       if (!node) return null;
       const rect = node.getBoundingClientRect();
-      const avatar = node.querySelector('div');
+      const avatar = node.querySelector('div'); 
       if (avatar) {
         const avatarRect = avatar.getBoundingClientRect();
         return {
@@ -149,15 +144,12 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       svg.appendChild(line);
     };
 
-    // Draw partner relationships
     members.forEach(person => {
       if (person.connectionType === 'partner' && person.connectedTo) {
         const myPos = positions.get(person.id);
         const partnerPos = positions.get(person.connectedTo);
-        
         if (myPos && partnerPos) {
           createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
-          
           const midX = (myPos.x + partnerPos.x) / 2;
           const midY = (myPos.y + partnerPos.y) / 2;
           coupleMidpoints.set(person.id, {x: midX, y: midY});
@@ -166,31 +158,25 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       }
     });
 
-    // Draw parent-child relationships
     members.forEach(child => {
       if (child.connectionType === 'child' && child.connectedTo) {
         const childPos = positions.get(child.id);
         if (!childPos) return;
-
         let parentPos = coupleMidpoints.get(child.connectedTo);
-        
         if (!parentPos) {
           const pos = positions.get(child.connectedTo);
           if (pos) parentPos = pos;
         }
-
         if (parentPos) {
           createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
         }
       }
     });
 
-    // Draw parent relationships
     members.forEach(parent => {
       if (parent.connectionType === 'parent' && parent.connectedTo) {
         const parentPos = positions.get(parent.id);
         const childPos = positions.get(parent.connectedTo);
-        
         if (parentPos && childPos) {
           createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
         }
@@ -201,7 +187,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
   useEffect(() => {
     if (members.length > 0) {
       const timer = setTimeout(drawAllLines, 800);
-      
       window.addEventListener('resize', drawAllLines);
       return () => {
         clearTimeout(timer);
@@ -211,9 +196,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
   }, [members]);
 
   const handleMemberClick = (member: FamilyMember) => {
-    // Don't open chat with yourself
     if (member.id === user?.uid) return;
-    
     if (onNavigateToChat) {
       onNavigateToChat(member);
     }
@@ -222,24 +205,22 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
   const uniqueGenerations = Array.from(new Set(members.map(m => m.generation))).sort((a,b) => a-b);
 
   return (
-    <div className="w-full mx-auto px-8 py-12 pb-32 bg-[#FAF7F4]">
-      {/* Header Section */}
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-light text-[#9C2D41] mb-4" style={{ fontFamily: 'Georgia, serif' }}>
+    <div className="w-full mx-auto px-8 py-16 pb-32 bg-[#FAF7F4]">
+      {/* Header */}
+      <div className="text-center mb-20">
+        <h1 className="text-6xl font-light text-[#9C2D41] mb-3 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
           Our Family Tree
         </h1>
-        <div className="flex items-center justify-center gap-2 text-[#CB857C]/80">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          <span className="text-lg font-medium">{members.length} {members.length === 1 ? 'Member' : 'Members'}</span>
-        </div>
+        {/* REFINED: Removed goofy logo, made text elegant */}
+        <p className="text-xl text-[#CB857C] font-light tracking-wide">
+          {members.length} {members.length === 1 ? 'Member' : 'Members'}
+        </p>
       </div>
 
       {/* Tree Container */}
       <div 
         ref={containerRef} 
-        className="rounded-3xl border-2 border-[#CB857C]/20 shadow-2xl relative min-h-[700px] py-28 px-20 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
+        className="rounded-[3rem] border border-[#CB857C]/20 shadow-xl relative min-h-[700px] py-28 px-20 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
       >
         <svg 
           ref={svgRef}
@@ -249,9 +230,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
 
         {members.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-32">
-            <svg className="w-20 h-20 text-[#9C2D41]/40 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
             <p className="text-xl text-[#CB857C]/80 font-normal">Loading family tree...</p>
           </div>
         ) : (
@@ -265,38 +243,43 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                   <div className="flex-1 flex justify-center gap-40 flex-wrap">
                     {members.filter(m => m.generation === gen).map(member => {
                       const isMe = member.id === user?.uid;
+                      const relationship = getRelationship(member.id);
+                      
                       return (
                         <div 
                           key={member.id}
                           ref={(el) => {
                             itemsRef.current[member.id] = el;
-                            if (el) {
-                              const allRefsReady = members.every(m => itemsRef.current[m.id]);
-                              if (allRefsReady) {
+                            if (el && members.every(m => itemsRef.current[m.id])) {
                                 setTimeout(drawAllLines, 100);
-                              }
                             }
                           }}
-                          className="flex flex-col items-center group"
+                          className="flex flex-col items-center group relative"
                         >
-                          <UserAvatar 
-                            name={member.name} 
-                            url={member.photoURL} 
-                            isMe={isMe}
+                          {/* CARD BOX */}
+                          <div 
                             onClick={() => handleMemberClick(member)}
-                          />
-                          <div className={`mt-4 bg-white/95 backdrop-blur-sm border-2 px-5 py-3 rounded-2xl shadow-lg group-hover:shadow-xl transition-all min-w-[160px] ${
-                            isMe 
-                              ? 'border-[#9C2D41]/40 ring-2 ring-[#9C2D41]/20' 
-                              : 'border-[#CB857C]/20 group-hover:border-[#9C2D41]/40'
-                          }`}>
-                            <p className={`text-base font-normal ${isMe ? 'text-[#9C2D41]' : 'text-[#9C2D41]'}`} style={{ fontFamily: 'Georgia, serif' }}>
-                              {member.name}
-                              {isMe && <span className="ml-2 text-sm text-[#CB857C]/80 font-normal">(You)</span>}
-                            </p>
-                            {member.role && (
-                              <p className="text-xs text-[#CB857C]/80 capitalize mt-1 font-normal">{member.role}</p>
-                            )}
+                            className={`flex flex-col items-center p-6 backdrop-blur-sm border rounded-[1.5rem] shadow-lg transition-all hover:scale-105 hover:shadow-xl cursor-pointer min-w-[200px] gap-4 ${
+                              isMe 
+                                ? 'bg-[#9C2D41] border-[#9C2D41] shadow-xl scale-105' 
+                                : 'bg-white/95 border-[#CB857C]/20 hover:border-[#9C2D41]/40'
+                            }`}
+                          >
+                            <UserAvatar 
+                              name={member.name} 
+                              url={member.photoURL} 
+                              isMe={isMe}
+                            />
+                            
+                            <div className="text-center">
+                              <p className={`text-xl font-normal ${isMe ? 'text-[#FAF7F4]' : 'text-[#9C2D41]'}`} style={{ fontFamily: 'Georgia, serif' }}>
+                                {member.name}
+                              </p>
+                              
+                              <p className={`text-sm font-medium uppercase tracking-wider mt-1 ${isMe ? 'text-[#F6CBB7]' : 'text-[#CB857C]/80'}`}>
+                                {isMe ? "You" : relationship}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       );
@@ -312,18 +295,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       {/* Legend */}
       <div className="mt-12 flex justify-center gap-10 text-sm text-[#9C2D41]">
         <div className="flex items-center gap-4 bg-white px-6 py-3 rounded-full shadow-md border border-[#CB857C]/20">
-          <svg width="48" height="4" className="overflow-visible">
-            <line 
-              x1="0" 
-              y1="2" 
-              x2="48" 
-              y2="2" 
-              stroke="#CB857C" 
-              strokeWidth="2.5" 
-              strokeLinecap="round"
-              strokeDasharray="8 4"
-            />
-          </svg>
+          <svg width="48" height="4" className="overflow-visible"><line x1="0" y1="2" x2="48" y2="2" stroke="#CB857C" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="8 4"/></svg>
           <span className="font-medium">Partners</span>
         </div>
         <div className="flex items-center gap-4 bg-white px-6 py-3 rounded-full shadow-md border border-[#CB857C]/20">
