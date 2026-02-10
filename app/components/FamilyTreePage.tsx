@@ -1,167 +1,128 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 
 interface FamilyMember {
   id: string;
   name: string;
   relation: string;
-  photo?: string;
-  x: number;
-  y: number;
-  generation: number;
+  generation: number; 
+  status: 'active' | 'needs_help';
+  partnerId?: string; // Tracks who they are linked to
 }
 
 export default function FamilyTreePage() {
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([
-    { id: '1', name: 'Grandpa Tan', relation: 'Grandfather', x: 200, y: 50, generation: 1 },
-    { id: '2', name: 'Grandma Tan', relation: 'Grandmother', x: 350, y: 50, generation: 1 },
-    { id: '3', name: 'Dad', relation: 'Father', x: 150, y: 200, generation: 2 },
-    { id: '4', name: 'Mom', relation: 'Mother', x: 300, y: 200, generation: 2 },
-    { id: '5', name: 'Uncle Ben', relation: 'Uncle', x: 450, y: 200, generation: 2 },
-    { id: '6', name: 'Sarah (You)', relation: 'Self', x: 200, y: 350, generation: 3 },
-    { id: '7', name: 'Brother Mike', relation: 'Brother', x: 350, y: 350, generation: 3 },
+    { id: '1', name: 'Grandpa Tan', relation: 'Grandfather', generation: 1, status: 'needs_help', partnerId: '2' },
+    { id: '2', name: 'Grandma Tan', relation: 'Grandmother', generation: 1, status: 'active', partnerId: '1' },
+    { id: '3', name: 'Dad', relation: 'Father', generation: 2, status: 'active', partnerId: '4' },
+    { id: '4', name: 'Mom', relation: 'Mother', generation: 2, status: 'active', partnerId: '3' },
+    { id: '6', name: 'Sarah (You)', relation: 'Self', generation: 3, status: 'active' },
   ]);
 
-  const handleDragStart = (e: React.DragEvent, member: FamilyMember) => {
-    if (!isEditMode) return;
-    e.dataTransfer.setData('text/plain', member.id);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+
+  const relations = [
+    { label: 'Grandfather', gen: 1 }, { label: 'Grandmother', gen: 1 },
+    { label: 'Father', gen: 2 }, { label: 'Mother', gen: 2 },
+    { label: 'Uncle', gen: 2 }, { label: 'Auntie', gen: 2 },
+    { label: 'Brother', gen: 3 }, { label: 'Sister', gen: 3 },
+  ];
+
+  const updateRelation = (memberId: string, newRelation: string) => {
+    const gen = relations.find(r => r.label === newRelation)?.gen || 3;
+    setFamilyMembers(prev =>
+      prev.map(m => m.id === memberId ? { ...m, relation: newRelation, generation: gen } : m)
+    );
+    setIsModalOpen(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    if (!isEditMode) return;
-    e.preventDefault();
-    const memberId = e.dataTransfer.getData('text/plain');
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - 50; // Center the member
-    const y = e.clientY - rect.top - 50;
+  const toggleConnect = (id1: string) => {
+    const partnerName = prompt("Enter the name of the person to link as a partner (e.g., Grandma Tan):");
+    const partner = familyMembers.find(m => m.name.toLowerCase() === partnerName?.toLowerCase());
+    
+    if (partner) {
+      setFamilyMembers(prev => prev.map(m => {
+        if (m.id === id1) return { ...m, partnerId: partner.id };
+        if (m.id === partner.id) return { ...m, partnerId: id1 };
+        return m;
+      }));
+      alert(`Linked ${partner.name} as partner!`);
+    } else {
+      alert("Person not found in the tree.");
+    }
+    setIsModalOpen(false);
+  };
 
-    setFamilyMembers(prev =>
-      prev.map(member =>
-        member.id === memberId ? { ...member, x, y } : member
-      )
+  const renderGeneration = (genLevel: number) => {
+    const members = familyMembers.filter(m => m.generation === genLevel);
+    return (
+      <div className="relative flex justify-center gap-12 py-10 border-b border-zinc-100 last:border-0">
+        {members.map((member, index) => {
+          const hasPartner = member.partnerId && members.some(m => m.id === member.partnerId);
+          return (
+            <div key={member.id} className="relative flex flex-col items-center group">
+              {/* Marriage Link Line (Visual Connector) */}
+              {hasPartner && member.id < (member.partnerId || "") && (
+                <div className="absolute top-10 left-full w-12 h-0.5 bg-zinc-300 -translate-x-1/2 z-0" />
+              )}
+              
+              <button 
+                onClick={() => { setEditingMember(member); setIsModalOpen(true); }}
+                className={`relative z-10 w-20 h-20 rounded-full flex items-center justify-center text-xl font-bold border-4 transition-all hover:scale-110 bg-white shadow-md
+                  ${member.status === 'needs_help' ? 'border-orange-500 animate-pulse' : 'border-green-400'}`}
+              >
+                {member.name[0]}
+              </button>
+              <div className="text-center mt-3">
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{member.relation}</p>
+                <p className="text-xs font-semibold text-zinc-900">{member.name}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-            Family Tree
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400">
-            The Tan Family Heritage
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              isEditMode
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-            }`}
-          >
-            {isEditMode ? '✓ Save Changes' : '✏️ Edit Mode'}
-          </button>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-center mb-2">Kindred Tree</h1>
+      <p className="text-center text-zinc-500 mb-10">Tap a circle to edit relations or link family members.</p>
+
+      <div className="bg-white rounded-3xl border border-zinc-200 shadow-xl p-4">
+        {renderGeneration(1)}
+        {renderGeneration(2)}
+        {renderGeneration(3)}
       </div>
 
-      <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6 mb-6">
-        <div
-          className="relative w-full h-96 bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-900/10 dark:to-blue-900/10 rounded-lg overflow-hidden"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-        >
-          {/* Connection lines */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none">
-            {/* Grandparents to parents */}
-            <line x1="275" y1="100" x2="225" y2="200" stroke="#94a3b8" strokeWidth="2" />
-            <line x1="275" y1="100" x2="375" y2="200" stroke="#94a3b8" strokeWidth="2" />
-            <line x1="275" y1="100" x2="525" y2="200" stroke="#94a3b8" strokeWidth="2" />
+      {isModalOpen && editingMember && (
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold mb-2 text-center">Manage {editingMember.name}</h3>
+            <p className="text-center text-zinc-500 text-sm mb-6 font-medium">Define their role in the family ecosystem.</p>
             
-            {/* Parents to children */}
-            <line x1="225" y1="250" x2="275" y2="350" stroke="#94a3b8" strokeWidth="2" />
-            <line x1="375" y1="250" x2="275" y2="350" stroke="#94a3b8" strokeWidth="2" />
-            <line x1="375" y1="250" x2="425" y2="350" stroke="#94a3b8" strokeWidth="2" />
-          </svg>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {relations.map(r => (
+                <button
+                  key={r.label}
+                  onClick={() => updateRelation(editingMember.id, r.label)}
+                  className="p-3 text-sm border-2 rounded-xl font-bold hover:bg-blue-50 hover:border-blue-500 transition-all text-zinc-700"
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
 
-          {/* Family members */}
-          {familyMembers.map((member) => (
-            <div
-              key={member.id}
-              draggable={isEditMode}
-              onDragStart={(e) => handleDragStart(e, member)}
-              onClick={() => setSelectedMember(member)}
-              className={`absolute w-24 h-24 cursor-pointer transition-all ${
-                isEditMode ? 'hover:scale-110' : 'hover:scale-105'
-              } ${selectedMember?.id === member.id ? 'ring-2 ring-blue-500' : ''}`}
-              style={{ left: member.x, top: member.y }}
+            <button 
+              onClick={() => toggleConnect(editingMember.id)}
+              className="w-full py-3 bg-zinc-900 text-white rounded-xl font-bold mb-3 hover:bg-zinc-800 transition-colors"
             >
-              <div className="w-full h-full bg-white dark:bg-zinc-700 rounded-full border-2 border-zinc-200 dark:border-zinc-600 shadow-lg flex items-center justify-center overflow-hidden">
-                {member.photo ? (
-                  <Image
-                    src={member.photo}
-                    alt={member.name}
-                    width={80}
-                    height={80}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-2xl">
-                    {member.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                )}
-              </div>
-              <div className="text-center mt-2">
-                <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                  {member.name}
-                </div>
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {member.relation}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selectedMember && (
-        <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6">
-          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-            {selectedMember.name}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                Relation
-              </label>
-              <input
-                type="text"
-                value={selectedMember.relation}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-                readOnly={!isEditMode}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                Add Photo
-              </label>
-              <button
-                disabled={!isEditMode}
-                className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 disabled:opacity-50"
-              >
-                📷 Upload Photo
-              </button>
-            </div>
+              🔗 Link Partner
+            </button>
+            
+            <button onClick={() => setIsModalOpen(false)} className="w-full text-zinc-400 font-bold text-sm">Cancel</button>
           </div>
         </div>
       )}

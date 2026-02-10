@@ -1,18 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Image from 'next/image';
-
-interface FeedPost {
-  id: string;
-  author: string;
-  content: string;
-  image?: string;
-  timestamp: Date;
-  likes: string[];
-  comments: Comment[];
-  type: 'text' | 'photo' | 'recipe' | 'memory';
-}
 
 interface Comment {
   id: string;
@@ -21,297 +10,209 @@ interface Comment {
   timestamp: Date;
 }
 
+interface FeedPost {
+  id: string;
+  author: string;
+  role: string;
+  content: string;
+  image?: string;
+  timestamp: Date;
+  likes: string[];
+  comments: Comment[];
+  type: 'text' | 'photo' | 'recipe' | 'memory';
+  isReported?: boolean;
+}
+
 export default function FeedPage() {
   const [newPost, setNewPost] = useState('');
   const [postType, setPostType] = useState<FeedPost['type']>('text');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [showComments, setShowComments] = useState<string | null>(null);
+  const [newComment, setNewComment] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [posts, setPosts] = useState<FeedPost[]>([
     {
       id: '1',
       author: 'Grandma Tan',
-      content: 'Made my famous pork rib soup today! The secret is to add a bit of dried cuttlefish for that extra umami. Sarah, you should come learn this recipe before I forget! 😊',
+      role: 'Grandmother',
+      content: 'Made my famous pork rib soup today! Sarah, you should come learn this recipe before I forget! 😊',
       timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-      likes: ['Sarah', 'Mom', 'Dad'],
+      likes: ['Sarah'],
       comments: [
-        {
-          id: '1',
-          author: 'Sarah',
-          content: 'Yes please! Can we do this weekend?',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60)
-        },
-        {
-          id: '2',
-          author: 'Mom',
-          content: 'I still remember when you taught me this recipe 30 years ago!',
-          timestamp: new Date(Date.now() - 1000 * 60 * 30)
-        }
+        { id: 'c1', author: 'Sarah', content: 'On my way!', timestamp: new Date() }
       ],
-      type: 'recipe'
-    },
-    {
-      id: '2',
-      author: 'Dad',
-      content: 'Found this old photo from Sarah\'s first day of primary school. Time flies so fast! 📸',
-      image: '/placeholder.svg?height=300&width=400',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
-      likes: ['Sarah', 'Mom', 'Grandma Tan', 'Brother Mike'],
-      comments: [
-        {
-          id: '3',
-          author: 'Sarah',
-          content: 'OMG I look so tiny! And that backpack was bigger than me 😂',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4)
-        }
-      ],
-      type: 'memory'
-    },
-    {
-      id: '3',
-      author: 'Brother Mike',
-      content: 'Just finished my final exams! Thanks everyone for the support and late-night snack deliveries 🙏',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
-      likes: ['Sarah', 'Mom', 'Dad', 'Grandma Tan'],
-      comments: [],
-      type: 'text'
+      type: 'recipe',
+      isReported: false
     }
   ]);
 
-  const [showComments, setShowComments] = useState<string | null>(null);
-  const [newComment, setNewComment] = useState('');
+  const slangMap: Record<string, string> = {
+    "cooked": "exhausted/in trouble",
+    "jio": "invite",
+    "no cap": "honestly",
+    "slay": "doing great",
+    "fr": "for real",
+    "juju": "style/energy"
+  };
 
-  const typeIcons = {
-    text: '💬',
-    photo: '📸',
-    recipe: '👩‍🍳',
-    memory: '💭'
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedImage(e.target.files[0]);
+      setPostType('photo');
+    }
   };
 
   const handleCreatePost = () => {
-    if (!newPost.trim()) return;
+    if (!newPost.trim() && !selectedImage) return;
 
     const post: FeedPost = {
       id: Date.now().toString(),
-      author: 'Sarah',
+      author: 'Sarah Tan',
+      role: 'Granddaughter',
       content: newPost,
+      image: selectedImage ? URL.createObjectURL(selectedImage) : undefined,
       timestamp: new Date(),
       likes: [],
       comments: [],
-      type: postType
+      type: postType,
+      isReported: false
     };
 
     setPosts(prev => [post, ...prev]);
     setNewPost('');
+    setSelectedImage(null);
     setPostType('text');
   };
 
   const handleLike = (postId: string) => {
-    setPosts(prev =>
-      prev.map(post =>
-        post.id === postId
-          ? {
-              ...post,
-              likes: post.likes.includes('Sarah')
-                ? post.likes.filter(name => name !== 'Sarah')
-                : [...post.likes, 'Sarah']
-            }
-          : post
-      )
-    );
+    setPosts(prev => prev.map(post =>
+      post.id === postId
+        ? {
+            ...post,
+            likes: post.likes.includes('Sarah Tan')
+              ? post.likes.filter(n => n !== 'Sarah Tan')
+              : [...post.likes, 'Sarah Tan']
+          }
+        : post
+    ));
   };
 
   const handleComment = (postId: string) => {
     if (!newComment.trim()) return;
-
     const comment: Comment = {
       id: Date.now().toString(),
-      author: 'Sarah',
+      author: 'Sarah Tan',
       content: newComment,
       timestamp: new Date()
     };
-
-    setPosts(prev =>
-      prev.map(post =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, comment] }
-          : post
-      )
-    );
-
+    setPosts(prev => prev.map(post =>
+      post.id === postId ? { ...post, comments: [...post.comments, comment] } : post
+    ));
     setNewComment('');
   };
 
+  const translateSlang = (text: string) => {
+    let translated = text;
+    Object.keys(slangMap).forEach(key => {
+      const regex = new RegExp(`\\b${key}\\b`, 'gi');
+      translated = translated.replace(regex, `[${slangMap[key]}]`);
+    });
+    alert(`Elder Translation:\n"${translated}"`);
+  };
+
   const getTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    return `${Math.floor(diffInHours / 24)}d ago`;
+    const diff = Math.floor((new Date().getTime() - new Date(date).getTime()) / 3600000);
+    return diff < 1 ? 'Just now' : `${diff}h ago`;
   };
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-          Family Feed
-        </h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          Share everyday moments with your loved ones
-        </p>
+        <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-2 text-center">Family Feed</h1>
+        <p className="text-zinc-600 dark:text-zinc-400">Reducing friction, restoring kinship.</p>
       </div>
 
       {/* Create Post */}
-      <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6 mb-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-            ST
-          </div>
-          <div>
-            <div className="font-medium text-zinc-900 dark:text-zinc-100">Sarah Tan</div>
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">What's on your mind?</div>
-          </div>
-        </div>
-
+      <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 p-6 mb-6 shadow-sm">
         <textarea
           value={newPost}
           onChange={(e) => setNewPost(e.target.value)}
-          placeholder="Share something with your family..."
-          className="w-full px-4 py-3 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 resize-none mb-4"
+          placeholder="Share a thought or a 'Jio'..."
+          className="w-full p-3 border rounded-lg dark:bg-zinc-700 dark:text-white resize-none"
           rows={3}
         />
-
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            {Object.entries(typeIcons).map(([type, icon]) => (
-              <button
-                key={type}
-                onClick={() => setPostType(type as FeedPost['type'])}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  postType === type
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
-                }`}
-              >
-                {icon} {type}
-              </button>
-            ))}
+        
+        {selectedImage && (
+          <div className="mt-2 text-sm text-blue-600 font-medium italic">
+            📸 Image attached: {selectedImage.name}
           </div>
-          <button
-            onClick={handleCreatePost}
-            disabled={!newPost.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
+        )}
+
+        <div className="flex justify-between mt-4">
+          <div className="flex gap-2">
+            <input type="file" ref={fileInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+            <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-zinc-100 rounded">📸</button>
+            <button onClick={() => setPostType('recipe')} className="p-2 hover:bg-zinc-100 rounded">👩‍🍳</button>
+            <button onClick={() => setPostType('memory')} className="p-2 hover:bg-zinc-100 rounded">💭</button>
+          </div>
+          <button onClick={handleCreatePost} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
             Share
           </button>
         </div>
       </div>
 
-      {/* Posts */}
+      {/* Posts List */}
       <div className="space-y-6">
         {posts.map((post) => (
-          <div
-            key={post.id}
-            className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-                {post.author.split(' ').map(n => n[0]).join('')}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <div className="font-medium text-zinc-900 dark:text-zinc-100">
-                    {post.author}
+          <div key={post.id} className={`rounded-xl border p-6 shadow-sm ${post.isReported ? 'bg-red-50 border-red-200' : 'bg-white dark:bg-zinc-800'}`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                  {post.author[0]}
+                </div>
+                <div>
+                  <div className="font-bold dark:text-white">
+                    {post.author} <span className="text-xs font-normal text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full ml-2">{post.role}</span>
                   </div>
-                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {typeIcons[post.type]}
-                  </span>
-                </div>
-                <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {getTimeAgo(post.timestamp)}
+                  <div className="text-xs text-zinc-400">{getTimeAgo(post.timestamp)}</div>
                 </div>
               </div>
+              {post.isReported && <span className="text-red-600 font-bold text-xs uppercase tracking-widest">⚠️ FLAGGED</span>}
             </div>
 
-            <div className="mb-4">
-              <p className="text-zinc-900 dark:text-zinc-100 leading-relaxed">
-                {post.content}
-              </p>
-              {post.image && (
-                <div className="mt-3">
-                  <Image
-                    src={post.image}
-                    alt="Post image"
-                    width={400}
-                    height={300}
-                    className="rounded-lg w-full object-cover"
-                  />
-                </div>
-              )}
-            </div>
+            <p className="text-zinc-800 dark:text-zinc-200 mb-4">{post.content}</p>
+            {post.image && <img src={post.image} alt="Upload" className="rounded-lg mb-4 w-full object-cover max-h-80" />}
 
-            <div className="flex items-center gap-4 py-3 border-t border-zinc-200 dark:border-zinc-700">
-              <button
-                onClick={() => handleLike(post.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  post.likes.includes('Sarah')
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
-                }`}
-              >
+            <div className="flex gap-4 border-t pt-4 text-sm font-medium">
+              <button onClick={() => handleLike(post.id)} className={`flex items-center gap-1 ${post.likes.includes('Sarah Tan') ? 'text-red-500' : 'text-zinc-500'}`}>
                 ❤️ {post.likes.length}
               </button>
-              <button
-                onClick={() => setShowComments(showComments === post.id ? null : post.id)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-              >
+              <button onClick={() => setShowComments(showComments === post.id ? null : post.id)} className="text-zinc-500 hover:text-blue-600">
                 💬 {post.comments.length}
               </button>
+              <button onClick={() => translateSlang(post.content)} className="text-orange-600 hover:underline">👵 Translate for Elders</button>
+              <button onClick={() => setPosts(prev => prev.map(p => p.id === post.id ? {...p, isReported: true} : p))} className="ml-auto text-zinc-400 hover:text-red-500">Report</button>
             </div>
 
+            {/* Simple Comment List */}
             {showComments === post.id && (
-              <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4">
-                <div className="space-y-3 mb-4">
-                  {post.comments.map((comment) => (
-                    <div key={comment.id} className="flex gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                        {comment.author.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div className="flex-1">
-                        <div className="bg-zinc-100 dark:bg-zinc-700 rounded-lg px-3 py-2">
-                          <div className="font-medium text-sm text-zinc-900 dark:text-zinc-100">
-                            {comment.author}
-                          </div>
-                          <div className="text-zinc-700 dark:text-zinc-300">
-                            {comment.content}
-                          </div>
-                        </div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                          {getTimeAgo(comment.timestamp)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                    ST
+              <div className="mt-4 space-y-3 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-lg">
+                {post.comments.map(c => (
+                  <div key={c.id} className="text-sm">
+                    <span className="font-bold mr-2">{c.author}:</span>
+                    <span className="text-zinc-700 dark:text-zinc-300">{c.content}</span>
                   </div>
-                  <div className="flex-1 flex gap-2">
-                    <input
-                      type="text"
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Write a comment..."
-                      className="flex-1 px-3 py-2 border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 text-sm"
-                      onKeyPress={(e) => e.key === 'Enter' && handleComment(post.id)}
-                    />
-                    <button
-                      onClick={() => handleComment(post.id)}
-                      disabled={!newComment.trim()}
-                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Send
-                    </button>
-                  </div>
+                ))}
+                <div className="flex gap-2 mt-2">
+                  <input 
+                    value={newComment} 
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleComment(post.id)}
+                    className="flex-1 p-2 text-xs border rounded dark:bg-zinc-800" 
+                    placeholder="Write a comment..." 
+                  />
+                  <button onClick={() => handleComment(post.id)} className="text-xs bg-blue-600 text-white px-3 rounded">Send</button>
                 </div>
               </div>
             )}
