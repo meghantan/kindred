@@ -2,15 +2,17 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Navigation from './components/Navigation';
-import FamilyTreePage from './components/FamilyTreePage';
-import TranslationPage from './components/TranslationPage';
-import OpenJioPage from './components/OpenJioPage';
-import FeedPage from './components/FeedPage';
+import { useAuth } from '@/context/AuthContext'; // Import the hook
+import Navigation from '@/app/components/Navigation'; // Updated to absolute path for safety
+import FamilyTreePage from '@/app/components/FamilyTreePage';
+import TranslationPage from '@/app/components/TranslationPage';
+import OpenJioPage from '@/app/components/OpenJioPage';
+import FeedPage from '@/app/components/FeedPage';
 
 type PageType = 'dashboard' | 'family-tree' | 'translation' | 'open-jio' | 'feed';
 
 export default function Home() {
+  const { userData } = useAuth(); // Get real user data
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
 
   const renderPage = () => {
@@ -24,7 +26,8 @@ export default function Home() {
       case 'feed':
         return <FeedPage />;
       default:
-        return <Dashboard onNavigate={setCurrentPage} />;
+        // Pass the real name to the dashboard
+        return <Dashboard onNavigate={setCurrentPage} userName={userData?.name} />;
     }
   };
 
@@ -38,7 +41,8 @@ export default function Home() {
   );
 }
 
-function Dashboard({ onNavigate }: { onNavigate: (page: PageType) => void }) {
+// Update props interface to accept userName
+function Dashboard({ onNavigate, userName }: { onNavigate: (page: PageType) => void, userName?: string | null }) {
   const features = [
     {
       id: 'family-tree' as PageType,
@@ -86,7 +90,8 @@ function Dashboard({ onNavigate }: { onNavigate: (page: PageType) => void }) {
           </h1>
         </div>
         <p className="text-xl text-zinc-600 dark:text-zinc-400 mb-2">
-          Welcome back, Sarah Tan
+          {/* Use the Real Name with a fallback */}
+          Welcome back, {userName?.split(' ')[0] || 'Family Member'}
         </p>
         <p className="text-zinc-500 dark:text-zinc-500">
           Your Family Operating System
