@@ -43,28 +43,61 @@ export default function TranslationPage() {
     { id: 'cantonese', name: 'Cantonese', flag: '🥟' },
   ];
 
-  const handleTranslate = () => {
-    if (!inputText.trim()) return;
+const handleTranslate = async () => {
+  if (!inputText.trim()) return;
 
-    // Mock translation logic
-    let translated = '';
-    if (fromLang === 'gen-z' && toLang === 'elder-english') {
+  try {
+    const res = await fetch("http://localhost:5001/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: inputText,
+        fromLang,
+        toLang,
+      }),
+    });
+
+    if (!res.ok) {
+      // If API fails, keep your existing mock logic as fallback
+      throw new Error(await res.text());
+    }
+
+    const data = await res.json();
+    const translated = data.translated as string;
+
+    const newTranslation: Translation = {
+      id: Date.now().toString(),
+      original: inputText,
+      translated,
+      fromLang,
+      toLang,
+      timestamp: new Date(),
+    };
+
+    setTranslations((prev) => [newTranslation, ...prev]);
+    setInputText("");
+  } catch (err) {
+    // Fallback: your old mock translation logic (unchanged)
+    let translated = "";
+    if (fromLang === "gen-z" && toLang === "elder-english") {
       translated = inputText
-        .replace(/fire/gi, 'excellent')
-        .replace(/no cap/gi, 'honestly')
-        .replace(/hits different/gi, 'is exceptionally good')
-        .replace(/slaps/gi, 'is wonderful')
-        .replace(/bet/gi, 'certainly')
-        .replace(/fr/gi, 'for real')
-        .replace(/periodt/gi, 'end of discussion');
-    } else if (fromLang === 'elder-english' && toLang === 'gen-z') {
+        .replace(/fire/gi, "excellent")
+        .replace(/no cap/gi, "honestly")
+        .replace(/hits different/gi, "is exceptionally good")
+        .replace(/slaps/gi, "is wonderful")
+        .replace(/bet/gi, "certainly")
+        .replace(/fr/gi, "for real")
+        .replace(/periodt/gi, "end of discussion");
+    } else if (fromLang === "elder-english" && toLang === "gen-z") {
       translated = inputText
-        .replace(/excellent/gi, 'fire')
-        .replace(/honestly/gi, 'no cap')
-        .replace(/wonderful/gi, 'slaps')
-        .replace(/certainly/gi, 'bet');
+        .replace(/excellent/gi, "fire")
+        .replace(/honestly/gi, "no cap")
+        .replace(/wonderful/gi, "slaps")
+        .replace(/certainly/gi, "bet");
     } else {
-      translated = `[Translated from ${languages.find(l => l.id === fromLang)?.name} to ${languages.find(l => l.id === toLang)?.name}]: ${inputText}`;
+      translated = `[Translated from ${
+        languages.find((l) => l.id === fromLang)?.name
+      } to ${languages.find((l) => l.id === toLang)?.name}]: ${inputText}`;
     }
 
     const newTranslation: Translation = {
@@ -73,12 +106,14 @@ export default function TranslationPage() {
       translated,
       fromLang,
       toLang,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setTranslations(prev => [newTranslation, ...prev]);
-    setInputText('');
-  };
+    setTranslations((prev) => [newTranslation, ...prev]);
+    setInputText("");
+  }
+};
+
 
   const toggleVoiceInput = () => {
     setIsListening(!isListening);
