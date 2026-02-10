@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { db } from '@/library/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
+
 interface DashboardProps {
   userName?: string | null;
 }
@@ -16,7 +17,7 @@ export default function Dashboard({ userName }: DashboardProps) {
     newPosts: 0,
     loading: true
   });
-  
+
   // Fetch real family stats from Firebase
   useEffect(() => {
     const fetchFamilyStats = async () => {
@@ -102,6 +103,7 @@ export default function Dashboard({ userName }: DashboardProps) {
           <h1 className="text-5xl font-light text-[#9C2D41] mb-3 tracking-tight">
             Welcome back, <span className="font-normal">{userName?.split(' ')[0] || 'Member'}</span>
           </h1>
+          
           <p className="text-[#CB857C]/70 text-lg font-light">
             Here's what your family has been up to
           </p>
