@@ -6,11 +6,12 @@ import { useAuth } from '@/context/AuthContext'; // Import the hook
 import Navigation from '@/app/components/Navigation'; // Updated to absolute path for safety
 import FamilyTreePage from '@/app/components/FamilyTreePage';
 import TranslationPage from '@/app/components/TranslationPage';
+import ChatPage from '@/app/components/ChatPage';
 import OpenJioPage from '@/app/components/OpenJioPage';
 import FeedPage from '@/app/components/FeedPage';
 import ProfilePage from '@/app/components/ProfilePage';
 
-type PageType = 'dashboard' | 'family-tree' | 'translation' | 'open-jio' | 'feed' | 'profile';
+type PageType = 'dashboard' | 'family-tree' | 'chat' | 'open-jio' | 'feed' | 'profile';
 
 export default function Home() {
   const { userData } = useAuth(); // Get real user data
@@ -20,8 +21,8 @@ export default function Home() {
     switch (currentPage) {
       case 'family-tree':
         return <FamilyTreePage />;
-      case 'translation':
-        return <TranslationPage />;
+      case 'chat':
+        return <ChatPage />;
       case 'open-jio':
         return <OpenJioPage />;
       case 'feed':
@@ -56,9 +57,9 @@ function Dashboard({ onNavigate, userName }: { onNavigate: (page: PageType) => v
       color: 'bg-green-100 dark:bg-green-900/20 border-green-200 dark:border-green-800'
     },
     {
-      id: 'translation' as PageType,
-      title: 'Translation Bridge',
-      description: 'Translate between generations and languages',
+      id: 'chat' as PageType,
+      title: 'Communication Tool',
+      description: 'Chat with family members',
       icon: '🌉',
       color: 'bg-blue-100 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
     },

@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext'; // Import Auth to get real name
 import { useRouter, usePathname } from 'next/navigation'; // Import Router
 
-type PageType = 'dashboard' | 'family-tree' | 'translation' | 'open-jio' | 'feed' | 'profile';
+type PageType = 'dashboard' | 'family-tree' | 'chat' | 'open-jio' | 'feed' | 'profile';
 
 interface NavigationProps {
   currentPage: PageType;
@@ -24,7 +24,7 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
   const navItems = [
     { id: 'dashboard' as PageType, label: 'Home', icon: '🏠' },
     { id: 'family-tree' as PageType, label: 'Tree', icon: '🌳' },
-    { id: 'translation' as PageType, label: 'Translate', icon: '🌉' },
+    { id: 'chat' as PageType, label: 'Chat', icon: '💬' },
     { id: 'open-jio' as PageType, label: 'Jio', icon: '📅' },
     { id: 'feed' as PageType, label: 'Feed', icon: '💬' },
   ];
