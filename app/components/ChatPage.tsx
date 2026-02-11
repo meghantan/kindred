@@ -45,6 +45,27 @@ const LANGUAGES = [
   { id: 'english', name: 'Standard English', flag: '' },
 ];
 
+// --- Reusable Avatar Component ---
+const UserAvatar = ({ name, url, size = "w-10 h-10", textClass = "text-sm" }: { name: string, url?: string | null, size?: string, textClass?: string }) => {
+  const [imageError, setImageError] = useState(false);
+  const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?';
+
+  // FIX: Reset the error state if the URL changes so it doesn't get stuck showing initials!
+  useEffect(() => {
+    setImageError(false);
+  }, [url]);
+
+  return (
+    <div className={`${size} rounded-full flex items-center justify-center border-2 border-white shadow-sm relative overflow-hidden shrink-0 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] transition-all duration-300`}>
+      {!imageError && url ? (
+        <img src={url} alt={name} className="w-full h-full object-cover" onError={() => setImageError(true)} />
+      ) : (
+        <span className={`font-semibold text-[#FAF7F4] tracking-wider ${textClass}`}>{initials}</span>
+      )}
+    </div>
+  );
+};
+
 export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const { user, userData, familyMembers, getRelationship } = useAuth();
   
@@ -60,6 +81,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const [fromLang, setFromLang] = useState('gen-z');
   const [toLang, setToLang] = useState('elder-english');
   const [isTranslating, setIsTranslating] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -196,6 +221,63 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     }
   };
 
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder.current = new MediaRecorder(stream);
+    audioChunks.current = [];
+
+    mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
+    mediaRecorder.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      
+      reader.onloadend = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        setIsTranslating(true);
+        
+        try {
+          const res = await fetch("http://localhost:5001/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              audio: base64Audio,
+              shouldTranslate: isTranslationMode,
+              toLang: LANGUAGES.find(l => l.id === toLang)?.name
+            }),
+          });
+          
+          const data = await res.json();
+          
+          // ERROR HANDLING: Check if backend returned an error (like 429 Quota Exceeded)
+          if (!res.ok) {
+            alert(`Transcription Failed: ${data.error || 'Unknown error occurred'}`);
+            setIsTranslating(false);
+            return;
+          }
+
+          if (data.text) {
+            setNewMessage(data.text);
+          }
+        } catch (err) {
+          alert("Network Error: Could not connect to the transcription server.");
+          console.error("Transcription failed", err);
+        } finally {
+          setIsTranslating(false);
+        }
+      };
+    };
+
+    mediaRecorder.current.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorder.current?.stop();
+    setIsRecording(false);
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedMember || !user) return;
@@ -243,18 +325,15 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
   return (
-    <div className="flex h-[calc(100vh-80px)] max-w-7xl mx-auto bg-[#FAF7F4]">
+    // FIX: Adjusted to account for the taller h-24 nav bar, added pt-4 to clear the overlap
+    <div className="flex h-[calc(100vh-96px)] max-w-7xl mx-auto bg-[#FAF7F4] pt-4">
       
       {/* LEFT SIDEBAR */}
-      <div className="w-[420px] border-r border-[#CB857C]/10 bg-white hidden md:flex flex-col shadow-sm">
-        <div className="px-10 py-12 border-b border-[#CB857C]/10">
-          {/* UPDATED: Text-5xl for sidebar header */}
-          <h2 className="text-4xl font-light text-[#9C2D41] mb-3 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
+      <div className="w-[420px] border-r border-[#CB857C]/10 bg-white hidden md:flex flex-col shadow-sm rounded-tl-[1.5rem]">
+        {/* Adjusted padding to give the header more breathing room */}
+        <div className="px-10 pt-10 pb-8 border-b border-[#CB857C]/10">
+          <h2 className="text-4xl font-light text-[#9C2D41] mb-2 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
             Family Members
           </h2>
           <p className="text-base text-[#CB857C]/80 font-normal">
@@ -273,19 +352,14 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
               }`}
             >
               <div className="relative flex-shrink-0">
-                {preview.member.photoURL ? (
-                  <img 
-                    src={preview.member.photoURL} 
-                    alt={preview.member.name}
-                    className="w-14 h-14 rounded-full object-cover shadow-md"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white flex items-center justify-center font-bold text-lg shadow-md">
-                    {getInitials(preview.member.name)}
-                  </div>
-                )}
+                <UserAvatar 
+                  name={preview.member.name} 
+                  url={preview.member.photoURL} 
+                  size="w-14 h-14" 
+                  textClass="text-lg" 
+                />
                 {preview.unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-[#9C2D41] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md">
+                  <div className="absolute -top-1 -right-1 bg-[#9C2D41] text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md z-10">
                     {preview.unreadCount}
                   </div>
                 )}
@@ -318,23 +392,20 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       </div>
 
       {/* RIGHT SIDE: CHAT */}
-      <div className="flex-1 flex flex-col relative bg-[#FAF7F4]">
+      <div className="flex-1 flex flex-col relative bg-[#FAF7F4] rounded-tr-[1.5rem] overflow-hidden">
         {selectedMember ? (
           <>
             {/* HEADER */}
-            <div className="px-10 py-6 border-b border-[#CB857C]/10 flex items-center justify-between bg-white shadow-sm sticky top-0 z-10">
+            {/* FIX: Increased padding (pt-8 pb-6) to fix any remaining visual overlap */}
+            <div className="px-10 pt-8 pb-6 border-b border-[#CB857C]/10 flex items-center justify-between bg-white shadow-sm sticky top-0 z-10">
               <div className="flex items-center gap-5">
-                {selectedMember.photoURL ? (
-                  <img 
-                    src={selectedMember.photoURL} 
-                    alt={selectedMember.name}
-                    className="w-14 h-14 rounded-full object-cover shadow-md"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white flex items-center justify-center font-bold text-lg shadow-md">
-                    {getInitials(selectedMember.name)}
-                  </div>
-                )}
+                <UserAvatar 
+                  key={selectedMember.uid} // Added key to force a clean re-render on switch
+                  name={selectedMember.name} 
+                  url={selectedMember.photoURL} 
+                  size="w-14 h-14" 
+                  textClass="text-lg" 
+                />
                 <div>
                   <h3 className="font-normal text-xl text-[#9C2D41] mb-1" style={{ fontFamily: 'Georgia, serif' }}>
                     {selectedMember.name}
@@ -440,17 +511,12 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                 return (
                   <div key={msg.id} className={`flex gap-4 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     <div className="flex-shrink-0">
-                      {sender?.photoURL ? (
-                        <img 
-                          src={sender.photoURL} 
-                          alt={sender.name}
-                          className="w-11 h-11 rounded-full object-cover shadow-md"
-                        />
-                      ) : (
-                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#9C2D41] to-[#CB857C] text-white flex items-center justify-center font-bold text-sm shadow-md">
-                          {getInitials(sender?.name || 'U')}
-                        </div>
-                      )}
+                      <UserAvatar 
+                        name={sender?.name || 'User'} 
+                        url={sender?.photoURL} 
+                        size="w-11 h-11" 
+                        textClass="text-sm" 
+                      />
                     </div>
 
                     <div className={`max-w-[65%] px-6 py-5 rounded-[2rem] shadow-md ${
@@ -502,17 +568,26 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                  >
                    {isTranslating ? 'Translating...' : 'Send'}
                  </button>
+                 <button 
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`p-4 rounded-full transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#CB857C]/20 text-[#9C2D41]'}`}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                      <path d="M19 10v1a7 7 0 01-14 0v-1M12 19v4m-4 0h8" strokeWidth={2} strokeLinecap="round" />
+                    </svg>
+                  </button>
                </form>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-20">
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-20 bg-white">
             <div className="w-40 h-40 bg-[#F6CBB7]/15 rounded-full flex items-center justify-center mb-10 shadow-sm">
               <svg className="w-20 h-20 text-[#9C2D41]/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            {/* UPDATED: Text-6xl for empty state header */}
             <h3 className="text-6xl font-light text-[#9C2D41] mb-4" style={{ fontFamily: 'Georgia, serif' }}>
               Your Family Chat
             </h3>
