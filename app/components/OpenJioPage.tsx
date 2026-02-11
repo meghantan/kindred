@@ -189,6 +189,8 @@ export default function OpenJioPage() {
 
       if (isEditing && selectedEvent) {
         await updateDoc(doc(db, "jios", selectedEvent.id), payload);
+        setSelectedEvent({ ...selectedEvent, ...payload, date: jioDate });
+
         const updateMsg = `${userData.name} updated details for "${formState.title}" on ${formState.date}.`;
         await sendNotificationChats(recipients, updateMsg);
       } else {
