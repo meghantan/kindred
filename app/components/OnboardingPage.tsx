@@ -261,7 +261,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           if (siblingParentRel) {
             newUserRelationships.push({
               uid: siblingParentRel.uid,
-              type: 'child',
+              type: 'parent',  // Fixed: This person is MY parent, not my child
               addedAt: timestamp
             });
           }

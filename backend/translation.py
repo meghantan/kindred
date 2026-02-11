@@ -29,26 +29,21 @@ SYSTEM_PROMPT = (
 )
 
 def translate_text(text: str, from_lang: str, to_lang: str) -> str:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return text  # fallback
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key: return text
 
     try:
-        client = genai.Client(api_key=api_key)  # SDK supports GEMINI_API_KEY too :contentReference[oaicite:2]{index=2}
-
+        client = OpenAI(api_key=openai_api_key)
         prompt = f"{SYSTEM_PROMPT}\n\nFROM: {from_lang}\nTO: {to_lang}\n\nTEXT:\n{text}"
-
-        # Pick a fast model; you can swap later
-        resp = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
+        
+        # Use OpenAI's GPT-4o-mini for translation to avoid Gemini rate limits
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
         )
-
-        out = (resp.text or "").strip()
-        return out if out else text
-
+        return response.choices[0].message.content.strip()
     except Exception as e:
-        print("Gemini translation error:", repr(e))
+        print("OpenAI translation error:", repr(e))
         return text
 
 def transcribe_and_process_audio(audio_base64: str, target_lang: str, should_translate: bool) -> str:

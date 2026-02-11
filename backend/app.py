@@ -14,6 +14,9 @@ def health():
 # Translation Route
 @app.route("/translate", methods=["POST", "OPTIONS"])
 def translate():
+    # 1. Handle the CORS Preflight request
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
     from_lang = data.get("fromLang") or "unknown"
