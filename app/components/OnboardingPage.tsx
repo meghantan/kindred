@@ -32,11 +32,20 @@ const MASTER_SKILLS = [
   "Baking", "Singing"
 ];
 
+// Generate a random 6-character family code
+const generateFamilyCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars like O, 0, I, 1
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
 // --- Reusable Avatar Component for Tree ---
 const UserAvatar = ({ name, url, isActive, onClick }: { name: string, url?: string | null, isActive: boolean, onClick: () => void }) => {
   const [imageError, setImageError] = useState(false);
   
-  // Reset error state if the URL changes
   useEffect(() => {
     setImageError(false);
   }, [url]);
@@ -73,7 +82,14 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const user = auth.currentUser;
 
   // State
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // Start at 0 for family code step
+  const [familyMode, setFamilyMode] = useState<'join' | 'create' | null>(null);
+  const [familyCode, setFamilyCode] = useState('');
+  const [familyName, setFamilyName] = useState('');
+  const [familyId, setFamilyId] = useState('');
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [codeError, setCodeError] = useState('');
+  
   const [existingMembers, setExistingMembers] = useState<ExistingMember[]>([]);
   const [selectedAnchor, setSelectedAnchor] = useState<ExistingMember | null>(null);
   const [relationshipType, setRelationshipType] = useState<string | null>(null);
@@ -84,10 +100,12 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const [isAddingCustom, setIsAddingCustom] = useState(false);
   const [customTag, setCustomTag] = useState('');
 
-  // Fetch existing family on load
+  // Fetch existing family members once familyId is set
   useEffect(() => {
+    if (!familyId) return;
+    
     const fetchFamily = async () => {
-      const q = query(collection(db, "users"), where("familyId", "==", "family_demo_123"));
+      const q = query(collection(db, "users"), where("familyId", "==", familyId));
       const snapshot = await getDocs(q);
       const members: ExistingMember[] = [];
       
@@ -117,7 +135,84 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       setExistingMembers(normalizedMembers);
     };
     fetchFamily();
-  }, [user]);
+  }, [familyId, user]);
+
+  // --- Family Code Handlers ---
+  const handleJoinFamily = async () => {
+    if (!familyCode.trim()) {
+      setCodeError('Please enter a family code');
+      return;
+    }
+
+    setIsValidatingCode(true);
+    setCodeError('');
+
+    try {
+      // Check if family exists
+      const familyDocRef = doc(db, "families", familyCode.toUpperCase());
+      const familyDoc = await getDoc(familyDocRef);
+
+      if (!familyDoc.exists()) {
+        setCodeError('Family code not found. Please check and try again.');
+        setIsValidatingCode(false);
+        return;
+      }
+
+      // Family exists! Set the familyId and proceed
+      setFamilyId(familyCode.toUpperCase());
+      setStep(1); // Move to interests step
+    } catch (error) {
+      console.error('Error validating family code:', error);
+      setCodeError('Error validating code. Please try again.');
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
+
+  const handleCreateFamily = async () => {
+    if (!familyName.trim()) {
+      setCodeError('Please enter a family name');
+      return;
+    }
+
+    setIsValidatingCode(true);
+    setCodeError('');
+
+    try {
+      // Generate unique family code
+      let newFamilyCode = generateFamilyCode();
+      let familyExists = true;
+
+      // Keep generating until we get a unique code
+      while (familyExists) {
+        const familyDocRef = doc(db, "families", newFamilyCode);
+        const familyDoc = await getDoc(familyDocRef);
+        if (!familyDoc.exists()) {
+          familyExists = false;
+        } else {
+          newFamilyCode = generateFamilyCode();
+        }
+      }
+
+      // Create the family document
+      await setDoc(doc(db, "families", newFamilyCode), {
+        name: familyName,
+        code: newFamilyCode,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.uid,
+        updatedAt: new Date().toISOString()
+      });
+
+      setFamilyId(newFamilyCode);
+      setFamilyCode(newFamilyCode);
+      setStep(1); // Move to interests step
+    } catch (error) {
+      console.error('Error creating family:', error);
+      setCodeError('Error creating family. Please try again.');
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
 
   // --- Hobby Handlers ---
   const toggleInterest = (tag: string) => {
@@ -141,7 +236,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     if (!selectedAnchor) return 1;
     if (relationshipType === 'child') return selectedAnchor.originalGeneration + 1;
     if (relationshipType === 'parent') return selectedAnchor.originalGeneration - 1;
-    return selectedAnchor.originalGeneration; // partner or sibling = same generation
+    return selectedAnchor.originalGeneration;
   };
 
   // --- Submission Logic with Relationships Array ---
@@ -152,18 +247,15 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     try {
       const timestamp = new Date().toISOString();
       
-      // Build the new user's relationships array
       const newUserRelationships: Relationship[] = [];
       
       if (relationshipType && selectedAnchor) {
-        // Add the primary relationship
         newUserRelationships.push({
           uid: selectedAnchor.uid,
           type: relationshipType as 'parent' | 'child' | 'partner' | 'sibling',
           addedAt: timestamp
         });
         
-        // Special handling for sibling - also connect to parent if sibling has one
         if (relationshipType === 'sibling') {
           const siblingParentRel = selectedAnchor.relationships.find(r => r.type === 'parent');
           if (siblingParentRel) {
@@ -176,35 +268,30 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         }
       }
 
-      // Create the new user profile
       const newProfile = {
         uid: user.uid,
         name: user.displayName || 'Anonymous',
         email: user.email,
         photoURL: user.photoURL,
         interests: interests, 
-        familyId: "family_demo_123",
+        familyId: familyId,
         createdAt: timestamp,
         generation: calculatedGeneration(),
         role: 'member',
         relationships: newUserRelationships
       };
 
-      // Save the new user
       await setDoc(doc(db, "users", user.uid), newProfile);
       
-      // Update the selected anchor's relationships (add reciprocal relationship)
       if (relationshipType && selectedAnchor) {
         const reciprocalType = getReciprocalRelationshipType(relationshipType as any);
         
-        // Fetch current anchor data to preserve existing relationships
         const anchorDocRef = doc(db, "users", selectedAnchor.uid);
         const anchorDoc = await getDoc(anchorDocRef);
         const anchorData = anchorDoc.data();
         
         const existingRelationships = anchorData?.relationships || [];
         
-        // Add the new reciprocal relationship
         const updatedRelationships = [
           ...existingRelationships,
           {
@@ -218,7 +305,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           relationships: updatedRelationships
         }, { merge: true });
         
-        // Special handling for sibling - update parent's children list
         if (relationshipType === 'sibling') {
           const siblingParentRel = selectedAnchor.relationships.find(r => r.type === 'parent');
           if (siblingParentRel) {
@@ -243,9 +329,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         }
       }
       
-      // Update family metadata
-      await setDoc(doc(db, "families", "family_demo_123"), {
-        name: "The Tan Family",
+      await setDoc(doc(db, "families", familyId), {
         updatedAt: timestamp
       }, { merge: true });
 
@@ -260,7 +344,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     }
   };
 
-  // Helper function to get reciprocal relationship type
   const getReciprocalRelationshipType = (type: 'parent' | 'child' | 'partner' | 'sibling'): 'parent' | 'child' | 'partner' | 'sibling' => {
     const reciprocalMap: Record<string, 'parent' | 'child' | 'partner' | 'sibling'> = {
       'parent': 'child',
@@ -274,6 +357,148 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
   const uniqueGenerations = Array.from(new Set(existingMembers.map(m => m.generation))).sort((a, b) => a - b);
 
   // ==========================================
+  // STEP 0: JOIN OR CREATE FAMILY
+  // ==========================================
+  if (step === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#FAF7F4] selection:bg-[#9C2D41] selection:text-white">
+        <div className="max-w-2xl w-full bg-white rounded-[2rem] shadow-2xl overflow-hidden border border-[#CB857C]/20 animate-in slide-in-from-bottom-8 fade-in duration-500">
+          
+          {/* Header */}
+          <div className="p-10 text-center border-b border-[#CB857C]/15">
+            <div className="w-20 h-20 bg-gradient-to-br from-[#9C2D41] to-[#CB857C] rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+              <svg className="w-10 h-10 text-[#FAF7F4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <h2 className="text-4xl font-normal text-[#9C2D41] tracking-tight mb-3" style={{ fontFamily: 'Georgia, serif' }}>
+              Welcome to Kindred
+            </h2>
+            <p className="text-[#CB857C] text-lg font-light">Let's get you connected with your family.</p>
+          </div>
+          
+          {/* Body */}
+          <div className="p-10">
+            {!familyMode ? (
+              <div className="space-y-4">
+                <button
+                  onClick={() => setFamilyMode('join')}
+                  className="w-full p-6 rounded-2xl border-2 border-[#CB857C]/20 hover:border-[#9C2D41]/40 bg-white hover:bg-[#FAF7F4]/50 transition-all group text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#F6CBB7]/30 flex items-center justify-center group-hover:bg-[#9C2D41] transition-colors">
+                      <svg className="w-6 h-6 text-[#9C2D41] group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-[#9C2D41] mb-1">Join Existing Family</h3>
+                      <p className="text-sm text-[#CB857C] font-light">Enter a family code to connect</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setFamilyMode('create')}
+                  className="w-full p-6 rounded-2xl border-2 border-[#CB857C]/20 hover:border-[#9C2D41]/40 bg-white hover:bg-[#FAF7F4]/50 transition-all group text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-[#F6CBB7]/30 flex items-center justify-center group-hover:bg-[#9C2D41] transition-colors">
+                      <svg className="w-6 h-6 text-[#9C2D41] group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-[#9C2D41] mb-1">Start New Family</h3>
+                      <p className="text-sm text-[#CB857C] font-light">Create a family tree from scratch</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            ) : familyMode === 'join' ? (
+              <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+                <button
+                  onClick={() => { setFamilyMode(null); setCodeError(''); setFamilyCode(''); }}
+                  className="text-sm text-[#CB857C] hover:text-[#9C2D41] font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+
+                <div>
+                  <label className="block text-sm font-bold text-[#9C2D41] uppercase tracking-wider mb-3">
+                    Enter Family Code
+                  </label>
+                  <input
+                    type="text"
+                    value={familyCode}
+                    onChange={(e) => { setFamilyCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                    placeholder="e.g., ABC123"
+                    maxLength={6}
+                    className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none border-2 border-transparent focus:border-[#9C2D41] text-[#9C2D41] text-lg font-bold tracking-widest uppercase transition-all text-center placeholder-[#CB857C]/40"
+                  />
+                  {codeError && (
+                    <p className="text-red-500 text-sm mt-2 font-medium">{codeError}</p>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleJoinFamily}
+                  disabled={isValidatingCode || !familyCode.trim()}
+                  className="w-full py-4 bg-[#9C2D41] text-white rounded-full text-sm uppercase tracking-widest font-bold hover:bg-[#852233] transition-all shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isValidatingCode ? 'Validating...' : 'Join Family'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+                <button
+                  onClick={() => { setFamilyMode(null); setCodeError(''); setFamilyName(''); }}
+                  className="text-sm text-[#CB857C] hover:text-[#9C2D41] font-semibold flex items-center gap-2 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back
+                </button>
+
+                <div>
+                  <label className="block text-sm font-bold text-[#9C2D41] uppercase tracking-wider mb-3">
+                    Family Name
+                  </label>
+                  <input
+                    type="text"
+                    value={familyName}
+                    onChange={(e) => { setFamilyName(e.target.value); setCodeError(''); }}
+                    placeholder="e.g., The Smith Family"
+                    className="w-full px-6 py-4 bg-[#FAF7F4] rounded-2xl outline-none border-2 border-transparent focus:border-[#9C2D41] text-[#9C2D41] text-lg font-normal transition-all placeholder-[#CB857C]/40"
+                  />
+                  {codeError && (
+                    <p className="text-red-500 text-sm mt-2 font-medium">{codeError}</p>
+                  )}
+                  <p className="text-xs text-[#CB857C] mt-3 font-light">
+                    We'll generate a unique family code for you to share with others.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleCreateFamily}
+                  disabled={isValidatingCode || !familyName.trim()}
+                  className="w-full py-4 bg-[#9C2D41] text-white rounded-full text-sm uppercase tracking-widest font-bold hover:bg-[#852233] transition-all shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isValidatingCode ? 'Creating...' : 'Create Family'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
   // STEP 1: WELCOME & INTERESTS
   // ==========================================
   if (step === 1) {
@@ -283,6 +508,24 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           
           {/* Header */}
           <div className="p-8 border-b border-[#CB857C]/15 bg-white z-20 shadow-sm">
+            {familyMode === 'create' && familyCode && (
+              <div className="mb-4 p-4 bg-[#F6CBB7]/20 rounded-2xl border border-[#CB857C]/20">
+                <p className="text-xs font-bold text-[#9C2D41] uppercase tracking-wider mb-2">Your Family Code</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-2xl font-bold text-[#9C2D41] tracking-widest">{familyCode}</p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(familyCode);
+                      alert('Family code copied to clipboard!');
+                    }}
+                    className="px-4 py-2 bg-[#9C2D41] text-white rounded-xl text-xs font-bold hover:bg-[#852233] transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs text-[#CB857C] mt-2 font-light">Share this code with family members to let them join!</p>
+              </div>
+            )}
             <h2 className="text-4xl font-normal text-[#9C2D41] tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
               Welcome to Kindred.
             </h2>
@@ -425,7 +668,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                  const members = existingMembers.filter(m => m.generation === gen);
                  return (
                    <div key={gen} className="relative z-10 w-full animate-in slide-in-from-bottom-4 fade-in duration-500" style={{ animationDelay: `${gen * 100}ms` }}>
-                     {/* Elegant Generation Divider */}
                      <div className="flex items-center gap-4 mb-8">
                         <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-[#CB857C]/20"></div>
                         <span className="text-[11px] font-bold text-[#CB857C] uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-[#CB857C]/20 shadow-sm">
@@ -434,7 +676,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                         <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-[#CB857C]/20"></div>
                      </div>
                      
-                     {/* Avatars */}
                      <div className="flex justify-center gap-10 flex-wrap">
                        {members.map(member => (
                          <UserAvatar
@@ -471,7 +712,6 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
                      I am <span className="text-[#CB857C] font-semibold">{selectedAnchor.name}'s</span>...
                    </p>
                    
-                   {/* Refined 2x2 Grid Layout */}
                    <div className="grid grid-cols-2 gap-4 mb-6">
                      {[
                        { id: 'partner', label: 'Partner', desc: 'Same Generation' },
