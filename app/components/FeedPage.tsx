@@ -116,7 +116,7 @@ const UserAvatar = ({ name, url, size = "w-12 h-12", textClass = "text-lg" }: { 
 
 // --- Comment Component ---
 const CommentItem = ({ comment, isAuthor, onDelete, photoUrl }: { comment: Comment, isAuthor: boolean, onDelete: () => void, photoUrl?: string | null }) => (
-  <div className="flex gap-3 group animate-in fade-in slide-in-from-top-1 duration-300">
+  <div className="flex gap-3 group">
     <UserAvatar name={comment.authorName} url={photoUrl} size="w-9 h-9" textClass="text-sm" />
     <div className="flex-1">
       <div className="bg-white/80 rounded-[1.2rem] rounded-tl-none px-4 py-3 relative border border-[#CB857C]/15 shadow-sm">
@@ -304,7 +304,6 @@ const PostCard = ({
     if (showingTranslation) {
       setShowingTranslation(false);
     } else if (translatedContent) {
-      // Use cached translation if we already have it
       setShowingTranslation(true);
     } else {
       performTranslation(fromLang, toLang);
@@ -317,7 +316,6 @@ const PostCard = ({
     if (showingTranslation) {
         performTranslation(newLang, toLang);
     } else {
-        // Clear cache so next Translate click grabs fresh data
         setTranslatedContent(null);
     }
   };
@@ -328,7 +326,6 @@ const PostCard = ({
     if (showingTranslation) {
         performTranslation(fromLang, newLang);
     } else {
-        // Clear cache so next Translate click grabs fresh data
         setTranslatedContent(null);
     }
   };
@@ -372,7 +369,6 @@ const PostCard = ({
 
       {/* Post Content */}
       <div className="px-6 py-2">
-        {/* UPDATED: Increased text size from [15px] to [17px] */}
         <p className={`text-[17px] leading-relaxed whitespace-pre-wrap transition-colors ${showingTranslation ? 'text-[#9C2D41] font-medium' : 'text-[#4A4A4A]'}`}>
           {showingTranslation && translatedContent ? translatedContent : post.content}
         </p>
@@ -385,7 +381,7 @@ const PostCard = ({
         </div>
       )}
 
-      {/* Translation Settings (Expands above actions) */}
+      {/* Translation Settings */}
       {showTranslationSettings && (
         <div className="bg-gradient-to-r from-[#F6CBB7]/15 to-[#FAF7F4] border-t border-[#CB857C]/10 px-6 py-4">
           <div className="flex items-center gap-4">
@@ -394,7 +390,6 @@ const PostCard = ({
             </span>
             <div className="flex items-center gap-3 flex-1">
               
-              {/* FROM LANG DROPDOWN */}
               <div className="relative flex-1">
                 <select 
                   value={fromLang} 
@@ -414,7 +409,6 @@ const PostCard = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>
               
-              {/* TO LANG DROPDOWN */}
               <div className="relative flex-1">
                 <select 
                   value={toLang} 
@@ -476,7 +470,6 @@ const PostCard = ({
             </span>
           </button>
 
-          {/* ALWAYS show the settings gear icon now */}
           <button
             onClick={() => setShowTranslationSettings(!showTranslationSettings)}
             className={`p-2 rounded-full transition-all border shadow-sm ${
@@ -589,8 +582,9 @@ export default function FeedPage() {
     reader.readAsDataURL(file);
   };
 
+  // FIX: Allow deselecting prompts
   const handlePromptClick = (prompt: string) => {
-    setSelectedPrompt(prompt);
+    setSelectedPrompt(selectedPrompt === prompt ? null : prompt);
   };
 
   const handleCreatePost = async () => {
@@ -706,7 +700,7 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              {/* Writing Prompts */}
+              {/* Writing Prompts - UPDATED DESIGN */}
               <div className="bg-white rounded-[1.5rem] p-7 shadow-lg border border-[#CB857C]/20">
                 <div className="flex items-center gap-2.5 mb-4">
                   <Icons.Sparkles />
@@ -717,15 +711,15 @@ export default function FeedPage() {
                 <p className="text-[14px] text-[#CB857C] mb-5 leading-relaxed">
                   Not sure what to share? Try one of these prompts to spark a story.
                 </p>
-                <div className="flex flex-wrap gap-2.5">
+                <div className="flex flex-wrap gap-3 justify-center">
                   {WRITING_PROMPTS.map((prompt, idx) => (
                     <button
                       key={idx}
                       onClick={() => handlePromptClick(prompt)}
-                      className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-all border shadow-sm hover:shadow-md active:scale-95 ${
+                      className={`px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-all duration-300 border shadow-sm ${
                         selectedPrompt === prompt
-                          ? 'bg-gradient-to-r from-[#9C2D41] to-[#CB857C] text-white border-transparent'
-                          : 'bg-[#FAF7F4]/50 text-[#9C2D41] border-[#CB857C]/20 hover:border-[#9C2D41]/40 hover:bg-white'
+                          ? 'bg-[#9C2D41] text-[#FAF7F4] border-[#9C2D41] shadow-md'
+                          : 'bg-white text-[#CB857C] border-[#CB857C]/30 hover:border-[#9C2D41]/40 hover:text-[#9C2D41] hover:bg-[#FAF7F4]/50'
                       }`}
                     >
                       {prompt}
