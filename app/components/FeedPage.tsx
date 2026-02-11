@@ -588,31 +588,57 @@ export default function FeedPage() {
   };
 
   const handleCreatePost = async () => {
-  if ((!newPostContent.trim() && !selectedImage) || !user || !userData) return;
-  setIsPosting(true);
+    if ((!newPostContent.trim() && !selectedImage) || !user || !userData) return;
+    setIsPosting(true);
 
     try {
       const postContent = newPostContent;
       const postImage = selectedImage;
-      const postPrompt = selectedPrompt;
       
-      setNewPostContent('');
-      setSelectedImage(null);
-      setSelectedPrompt(null);
-
-      await addDoc(collection(db, 'posts'), {
+      // 1. Create Post in Firestore
+      const postRef = await addDoc(collection(db, 'posts'), {
         authorId: user.uid,
         authorName: userData.name,
-        authorRole: userData.role || 'Member',
+        authorRole: userData.role || 'Family Member',
         familyId: userData.familyId,
         content: postContent,
         createdAt: serverTimestamp(),
         likes: [],
         imageUrl: postImage,
-        prompt: postPrompt
+        prompt: selectedPrompt
       });
+
+      // 2. TRIGGER AI ANALYSIS
+      // Call the local backend to analyze the text for hobbies/interests
+      try {
+        const res = await fetch("http://localhost:5001/analyze-post", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: postContent }),
+        });
+        
+        if (res.ok) {
+          const { interests } = await res.json();
+
+          // 3. Update User Profile with newly discovered interests
+          if (interests && Array.isArray(interests) && interests.length > 0) {
+            const userRef = doc(db, "users", user.uid);
+            await updateDoc(userRef, {
+              interests: arrayUnion(...interests.map((i: string) => i.toLowerCase().trim()))
+            });
+          }
+        }
+      } catch (aiError) {
+        console.error("AI Profiling failed, but post was shared:", aiError);
+      }
+
+      // Reset UI State
+      setNewPostContent('');
+      setSelectedImage(null);
+      setSelectedPrompt(null);
     } catch (error) {
       console.error("Error creating post:", error);
+      alert("Failed to share post. Please try again.");
     } finally {
       setIsPosting(false);
     }
