@@ -352,35 +352,49 @@ export default function FeedPage() {
   };
 
   const handleCreatePost = async () => {
-    if ((!newPostContent.trim() && !selectedImage) || !user || !userData) return;
-    setIsPosting(true);
+  if ((!newPostContent.trim() && !selectedImage) || !user || !userData) return;
+  setIsPosting(true);
 
-    try {
-      const postContent = newPostContent;
-      const postImage = selectedImage;
-      const postPrompt = selectedPrompt;
-      
-      setNewPostContent('');
-      setSelectedImage(null);
-      setSelectedPrompt(null);
+  try {
+    const postContent = newPostContent;
+    const postImage = selectedImage;
+    
+    // 1. Standard Post Creation
+    await addDoc(collection(db, 'posts'), {
+      authorId: user.uid,
+      authorName: userData.name,
+      familyId: userData.familyId,
+      content: postContent,
+      createdAt: serverTimestamp(),
+      likes: [],
+      imageUrl: postImage,
+    });
 
-      await addDoc(collection(db, 'posts'), {
-        authorId: user.uid,
-        authorName: userData.name,
-        authorRole: userData.role || 'Member',
-        familyId: userData.familyId,
-        content: postContent,
-        createdAt: serverTimestamp(),
-        likes: [],
-        imageUrl: postImage,
-        prompt: postPrompt
+    // 2. TRIGGER AI ANALYSIS
+    const res = await fetch("http://localhost:5001/analyze-post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: postContent }),
+    });
+    
+    const { interests } = await res.json();
+
+    // 3. Update User Profile with found interests
+    if (interests && interests.length > 0) {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        interests: arrayUnion(...interests.map((i: string) => i.toLowerCase()))
       });
-    } catch (error) {
-      console.error("Error creating post:", error);
-    } finally {
-      setIsPosting(false);
     }
-  };
+
+    setNewPostContent('');
+    setSelectedImage(null);
+  } catch (error) {
+    console.error("Error:", error);
+  } finally {
+    setIsPosting(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] pb-32">

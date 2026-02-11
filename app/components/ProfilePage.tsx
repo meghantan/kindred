@@ -13,6 +13,10 @@ const MASTER_SKILLS = [
   "Baking", "Singing"
 ];
 
+interface ProfilePageProps {
+  onBack: () => void;
+}
+
 export default function ProfilePage({ onBack }: { onBack: () => void }) {
   const { userData, logOut } = useAuth();
   

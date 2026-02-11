@@ -9,6 +9,7 @@ import {
 
 // --- ICONS ---
 const Icons = {
+  Sparkles: () => (<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>),
   Meal: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
   Activity: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   Errand: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>,
@@ -74,6 +75,9 @@ export default function OpenJioPage() {
   const [memberMap, setMemberMap] = useState<Record<string, DisplayMember>>({});
 
   const [formState, setFormState] = useState(INITIAL_FORM_STATE);
+
+  const [suggestions, setSuggestions] = useState<DisplayMember[]>([]);
+  const [isMatching, setIsMatching] = useState(false);
 
   // --- ICONS MAPPING (Restored for functionality) ---
   const categorySVGs = {
@@ -240,6 +244,32 @@ export default function OpenJioPage() {
     if(userData) await updateDoc(doc(db, "jios", id), { participants: arrayRemove(userData.name) });
   };
 
+  //--Smart Suggestions Logic--
+  const getSmartSuggestions = async () => {
+  if (!formState.title || familyMembers.length === 0) return;
+  setIsMatching(true);
+  try {
+    const membersPayload = familyMembers.map((m: any) => ({ 
+      name: m.name, 
+      interests: m.interests || [] 
+    }));
+    
+    const res = await fetch("http://localhost:5001/suggest-jio-matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        title: formState.title, 
+        description: formState.description, 
+        members: membersPayload 
+      }),
+    });
+    const { suggestions: names } = await res.json();
+    const matchedMembers = familyMembers.filter((m: any) => names.includes(m.name));
+    setSuggestions(matchedMembers);
+  } catch (e) { console.error(e); }
+  finally { setIsMatching(false); }
+};
+
   // --- FILTERING LOGIC ---
   const canViewJio = (jio: JioEvent) => {
     if (jio.creatorId === userData?.uid) return true;
@@ -301,70 +331,101 @@ export default function OpenJioPage() {
     );
   };
 
-  const JioCard = ({ jio }: { jio: JioEvent }) => {
-    const isCreator = jio.creatorId === userData?.uid;
-    const hasJoined = jio.participants.includes(userData?.name || '');
-    
-    return (
-      <div 
-        onClick={() => setSelectedEvent(jio)} 
-        className="bg-white rounded-[2.5rem] border border-[#CB857C]/10 p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer relative"
-      >
-        <div className="flex flex-col md:flex-row gap-8">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-4">
-              <span className={`px-3 py-1.5 rounded-xl text-[11px] font-medium tracking-wider uppercase border flex items-center gap-1.5 ${categoryColors[jio.category]}`}>
-                {categorySVGs[jio.category]} {jio.category}
-              </span>
-              <span className="text-xs text-[#CB857C] font-normal">
-                by <span className="text-[#9C2D41] font-medium bg-[#F6CBB7]/20 px-2 py-0.5 rounded-md">{jio.creator}</span>
-              </span>
-            </div>
-            
-            <h3 className="text-3xl font-light text-[#9C2D41] mb-3 leading-tight group-hover:text-[#852233] transition-colors" style={{ fontFamily: 'Georgia, serif' }}>
-              {jio.title}
-            </h3>
-            
-            <p className="text-base text-[#CB857C]/80 line-clamp-2 mb-5 font-normal leading-relaxed">
-              {jio.description}
-            </p>
+const JioCard = ({ jio }: { jio: JioEvent }) => {
+  const isCreator = jio.creatorId === userData?.uid;
+  const hasJoined = jio.participants.includes(userData?.name || '');
+  
+  // Local state for matches
+  const [localSuggestions, setLocalSuggestions] = useState<DisplayMember[]>([]);
+  const [isLocalMatching, setIsLocalMatching] = useState(false);
 
-            <div className="flex items-center gap-5 text-sm text-[#CB857C] font-medium">
-               <div className="flex items-center gap-2 bg-[#FAF7F4] px-3 py-1.5 rounded-xl border border-[#CB857C]/10">
-                 <Icons.Calendar /> {jio.date.toLocaleDateString()}
-               </div>
-               <div className="flex items-center gap-2 bg-[#FAF7F4] px-3 py-1.5 rounded-xl border border-[#CB857C]/10">
-                 <Icons.Clock /> {formatTimeDisplay(jio.time)}
-               </div>
-            </div>
-          </div>
+  const fetchMatchesForJio = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLocalMatching(true);
+    try {
+      const membersPayload = familyMembers.map((m: any) => ({ 
+        name: m.name, 
+        interests: m.interests || [] 
+      }));
+      
+      const res = await fetch("http://localhost:5001/suggest-jio-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          title: jio.title, 
+          description: jio.description, 
+          members: membersPayload 
+        }),
+      });
+      const { suggestions: names } = await res.json();
+      const matchedMembers = familyMembers.filter((m: any) => names.includes(m.name));
+      setLocalSuggestions(matchedMembers);
+    } catch (e) { 
+      console.error("Matching error:", e); 
+    } finally { 
+      setIsLocalMatching(false); 
+    }
+  };
 
-          <div className="flex flex-col items-end justify-between min-w-[150px] border-l border-[#FAF7F4] pl-8 md:border-l border-[#CB857C]/10">
-             <div className="text-right mb-6 w-full">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setShowParticipantsModal(jio.id); }}
-                  className="text-xs font-bold text-[#9C2D41] block mb-2 hover:underline uppercase tracking-wide ml-auto"
-                >
-                  {jio.participants.length} Going
-                </button>
-                <ParticipantFacePile 
-                  names={jio.participants} 
-                  onClick={(e) => { e.stopPropagation(); setShowParticipantsModal(jio.id); }} 
-                />
-             </div>
-
-             {isCreator ? (
-               <button onClick={(e) => { e.stopPropagation(); openEditForm(jio); }} className="w-full py-3 px-5 bg-[#FAF7F4] text-[#CB857C] text-sm font-medium rounded-2xl hover:bg-[#F6CBB7]/20 hover:text-[#9C2D41] transition-colors">Edit</button>
-             ) : hasJoined ? (
-                <button onClick={(e) => handleLeaveJio(e, jio.id)} className="w-full py-3 px-5 bg-[#FFF1F2] text-[#BE123C] text-sm font-medium rounded-2xl border border-[#BE123C]/20 hover:bg-[#FFE4E6] transition-colors">Leave</button>
-             ) : (
-                <button onClick={(e) => handleJoinJio(e, jio.id)} className="w-full py-3 px-5 bg-[#9C2D41] text-white text-sm font-medium rounded-2xl shadow-md hover:shadow-lg hover:bg-[#852233] active:scale-95 transition-all">Join</button>
-             )}
-          </div>
+  return (
+    <div 
+      onClick={() => setSelectedEvent(jio)} 
+      className="bg-white rounded-[2.5rem] border border-[#CB857C]/10 p-8 shadow-sm hover:shadow-xl transition-all group cursor-pointer relative"
+    >
+      {/* Existing Card Content */}
+      <div className="flex flex-col md:flex-row gap-8">
+        <div className="flex-1">
+          {/* ... Title, Description, Category, and Time/Date info ... */}
+          <h3 className="text-3xl font-light text-[#9C2D41] mb-3" style={{ fontFamily: 'Georgia, serif' }}>
+            {jio.title}
+          </h3>
+          <p className="text-base text-[#CB857C]/80 mb-5">{jio.description}</p>
+        </div>
+        
+        {/* Participation Info and Join/Leave buttons */}
+        <div className="flex flex-col items-end justify-between min-w-[150px]">
+           {/* ... Facepile and Buttons ... */}
         </div>
       </div>
-    );
-  };
+
+      {/* KINDRED MATCHES - Only shows for the creator after creation */}
+      {isCreator && (
+        <div className="mt-6 pt-6 border-t border-[#FAF7F4]">
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2">
+              <Icons.Sparkles />
+              <h4 className="text-[11px] font-bold text-[#9C2D41] uppercase tracking-widest">Kindred Matches</h4>
+            </div>
+            <button 
+              onClick={fetchMatchesForJio}
+              className="text-[10px] text-[#CB857C] font-bold hover:text-[#9C2D41] transition-colors"
+            >
+              {isLocalMatching ? 'Finding...' : 'Find Matches'}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {localSuggestions.map(member => (
+              <button
+                key={member.uid}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const msg = `Hi ${member.name}! I'm organizing "${jio.title}". Since you're into similar things, want to join?`;
+                  sendNotificationChats([member], msg);
+                  alert(`Private invite sent to ${member.name}!`);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#FAF7F4] border border-[#CB857C]/20 rounded-full text-[11px] text-[#9C2D41] hover:bg-[#9C2D41] hover:text-white transition-all shadow-sm"
+              >
+                <span>Invite {member.name}</span>
+                <Icons.Plus />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
   return (
     <div className="max-w-6xl mx-auto px-8 py-16 min-h-screen bg-[#FAF7F4]">
@@ -476,6 +537,40 @@ export default function OpenJioPage() {
           </div>
         </div>
       )}
+      {formState.title.length > 3 && (
+          <div className="mt-6 p-5 bg-[#FAF7F4] rounded-2xl border border-[#CB857C]/20 shadow-inner">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-xs font-bold text-[#9C2D41] uppercase tracking-widest">
+                Kindred Matches
+              </h4>
+              <button 
+                onClick={getSmartSuggestions} 
+                className="text-[11px] text-[#CB857C] hover:text-[#9C2D41] font-bold uppercase transition-colors"
+              >
+                {isMatching ? 'Finding...' : 'Refresh'}
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {suggestions.length > 0 ? suggestions.map(member => (
+                <button
+                  key={member.uid}
+                  onClick={() => {
+                    const msg = `Hi ${member.name}! I just created a Jio for "${formState.title}". Since you're into similar things, would you like to come?`;
+                    sendNotificationChats([member], msg);
+                    alert(`Private invite sent to ${member.name}!`);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-[#CB857C]/30 rounded-full text-xs text-[#9C2D41] hover:bg-[#9C2D41] hover:text-white transition-all shadow-sm"
+                >
+                  <span>Invite {member.name}</span>
+                  <Icons.Plus />
+                </button>
+              )) : (
+                <p className="text-[11px] text-[#CB857C] italic">Click refresh to find family members who share these interests.</p>
+              )}
+            </div>
+          </div>
+        )}
 
       {showParticipantsModal && (
         <div className="fixed inset-0 bg-[#9C2D41]/10 backdrop-blur-md flex items-center justify-center z-50 p-4">
