@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { 
   collection, query, where, onSnapshot, orderBy, addDoc, 
-  serverTimestamp, updateDoc, doc, getDocs 
+  serverTimestamp, updateDoc, doc, getDocs, limit 
 } from 'firebase/firestore';
 
 interface Message {
@@ -50,7 +50,6 @@ const UserAvatar = ({ name, url, size = "w-10 h-10", textClass = "text-sm" }: { 
   const [imageError, setImageError] = useState(false);
   const initials = name ? name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '?';
 
-  // FIX: Reset the error state if the URL changes so it doesn't get stuck showing initials!
   useEffect(() => {
     setImageError(false);
   }, [url]);
@@ -69,12 +68,14 @@ const UserAvatar = ({ name, url, size = "w-10 h-10", textClass = "text-sm" }: { 
 export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const { user, userData, familyMembers, getRelationshipLabel } = useAuth();
   
-  const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
   const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   
   const [unreadNotifications, setUnreadNotifications] = useState<any[]>([]);
+  
+  // FIX: Track the latest message for each user in real-time
+  const [latestMessages, setLatestMessages] = useState<Record<string, {text: string, time: any}>>({});
   
   const [isTranslationMode, setIsTranslationMode] = useState(false);
   const [showTranslationSettings, setShowTranslationSettings] = useState(false);
@@ -103,44 +104,62 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
     return () => unsubscribe();
   }, [user]);
 
-  // Build chat previews
+  // FIX: Real-time listener for the latest message in each chat
   useEffect(() => {
     if (!user || !familyMembers || familyMembers.length === 0) return;
 
-    const fetchChatPreviews = async () => {
-      const previews: ChatPreview[] = [];
-      const otherMembers = familyMembers.filter((m: any) => m.uid !== user.uid);
+    const otherMembers = familyMembers.filter((m: any) => m.uid !== user.uid);
+    
+    const unsubscribes = otherMembers.map(member => {
+      const chatId = [user.uid, member.uid].sort().join('_');
+      // Limit to 1 because we only care about the very last message for the preview
+      const q = query(
+        collection(db, "chats", chatId, "messages"), 
+        orderBy("createdAt", "desc"), 
+        limit(1) 
+      );
 
-      for (const member of otherMembers) {
-        const chatId = [user.uid, member.uid].sort().join('_');
-        const q = query(
-          collection(db, "chats", chatId, "messages"), 
-          orderBy("createdAt", "desc")
-        );
-
-        const snapshot = await getDocs(q);
-        const lastMsg = snapshot.docs[0];
-        const unreadCount = unreadNotifications.filter(n => n.senderId === member.uid).length;
-
-        previews.push({
-          member: member as UserProfile,
-          lastMessage: lastMsg ? lastMsg.data().text : "No messages yet",
-          lastMessageTime: lastMsg ? lastMsg.data().createdAt : null,
-          unreadCount
-        });
-      }
-
-      previews.sort((a, b) => {
-        if (!a.lastMessageTime) return 1;
-        if (!b.lastMessageTime) return -1;
-        return b.lastMessageTime.toMillis() - a.lastMessageTime.toMillis();
+      return onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const lastMsg = snapshot.docs[0].data();
+          setLatestMessages(prev => ({
+            ...prev,
+            [member.uid]: {
+              text: lastMsg.text,
+              time: lastMsg.createdAt
+            }
+          }));
+        }
       });
+    });
 
-      setChatPreviews(previews);
-    };
+    return () => unsubscribes.forEach(unsub => unsub());
+  }, [user, familyMembers]);
 
-    fetchChatPreviews();
-  }, [familyMembers, user, unreadNotifications]);
+  // FIX: Dynamically derive the chat previews array based on the real-time latestMessages state
+  const chatPreviews: ChatPreview[] = familyMembers
+    .filter((m: any) => m.uid !== user?.uid)
+    .map(member => {
+      const lastMsg = latestMessages[member.uid];
+      const unreadCount = unreadNotifications.filter(n => n.senderId === member.uid).length;
+
+      return {
+        member: member as UserProfile,
+        lastMessage: lastMsg ? lastMsg.text : "No messages yet",
+        lastMessageTime: lastMsg ? lastMsg.time : null,
+        unreadCount
+      };
+    })
+    .sort((a, b) => {
+      if (!a.lastMessageTime) return 1;
+      if (!b.lastMessageTime) return -1;
+      
+      // serverTimestamp can be null for a split second before the server confirms it, fallback to Date.now()
+      const timeA = a.lastMessageTime?.toMillis ? a.lastMessageTime.toMillis() : Date.now();
+      const timeB = b.lastMessageTime?.toMillis ? b.lastMessageTime.toMillis() : Date.now();
+      
+      return timeB - timeA;
+    });
 
   // Clear notifications
   useEffect(() => {
@@ -236,7 +255,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       reader.onloadend = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
         
-        // Using isTranslating to disable the send button while it loads
         setIsTranslating(true); 
         
         try {
@@ -245,8 +263,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               audio: base64Audio,
-              
-              // 1. FORCE FALSE: We only want the original language text right now
               shouldTranslate: false 
             }),
           });
@@ -260,7 +276,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
           }
 
           if (data.text) {
-            // 2. PLACES ORIGINAL TEXT IN BOX: You can now review your Mandarin/Hokkien text
             setNewMessage(data.text);
           }
         } catch (err) {
@@ -328,12 +343,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
   };
 
   return (
-    // FIX: Adjusted to account for the taller h-24 nav bar, added pt-4 to clear the overlap
     <div className="flex h-[calc(100vh-96px)] max-w-7xl mx-auto bg-[#FAF7F4] pt-4">
       
       {/* LEFT SIDEBAR */}
       <div className="w-[420px] border-r border-[#CB857C]/10 bg-white hidden md:flex flex-col shadow-sm rounded-tl-[1.5rem]">
-        {/* Adjusted padding to give the header more breathing room */}
         <div className="px-10 pt-10 pb-8 border-b border-[#CB857C]/10">
           <h2 className="text-4xl font-light text-[#9C2D41] mb-2 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
             Family Members
@@ -398,11 +411,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
         {selectedMember ? (
           <>
             {/* HEADER */}
-            {/* FIX: Increased padding (pt-8 pb-6) to fix any remaining visual overlap */}
             <div className="px-10 pt-8 pb-6 border-b border-[#CB857C]/10 flex items-center justify-between bg-white shadow-sm sticky top-0 z-10">
               <div className="flex items-center gap-5">
                 <UserAvatar 
-                  key={selectedMember.uid} // Added key to force a clean re-render on switch
+                  key={selectedMember.uid}
                   name={selectedMember.name} 
                   url={selectedMember.photoURL} 
                   size="w-14 h-14" 
@@ -565,12 +577,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                    title={isRecording ? "Stop Recording" : "Start Voice Typing"}
                  >
                    {isRecording ? (
-                     /* Pause / Stop Icon */
                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                        <path d="M6 6h4v12H6zM14 6h4v12h-4z" />
                      </svg>
                    ) : (
-                     /* Microphone Icon */
                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 10v1a7 7 0 01-14 0v-1M12 19v4m-4 0h8" />
