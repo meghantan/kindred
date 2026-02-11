@@ -144,14 +144,14 @@ const PostCard = ({
   currentUserName, 
   currentUserPhoto, 
   membersMap, 
-  getRelationship 
+  getRelationshipLabel
 }: { 
   post: FeedPost; 
   currentUserId: string; 
   currentUserName: string; 
   currentUserPhoto: string | null; 
   membersMap: Record<string, any>; 
-  getRelationship: (id: string) => string; 
+  getRelationshipLabel: (id: string) => string; 
 }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [showComments, setShowComments] = useState(false);
@@ -167,7 +167,7 @@ const PostCard = ({
 
   const isAuthor = currentUserId === post.authorId;
   const authorPhoto = membersMap[post.authorId]?.photoURL || post.authorPhotoUrl;
-  const relationship = isAuthor ? "You" : (getRelationship(post.authorId) || post.authorRole);
+  const relationship = isAuthor ? "You" : (getRelationshipLabel(post.authorId) || post.authorRole);
   
   const [isLiked, setIsLiked] = useState(post.likes?.includes(currentUserId) || false);
   const [likeCount, setLikeCount] = useState(post.likes?.length || 0);
@@ -529,7 +529,7 @@ const PostCard = ({
 
 // --- Main Page ---
 export default function FeedPage() {
-  const { user, userData, getRelationship } = useAuth();
+  const { user, userData, getRelationshipLabel } = useAuth();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [membersMap, setMembersMap] = useState<Record<string, any>>({});
   const [newPostContent, setNewPostContent] = useState('');
@@ -765,7 +765,7 @@ export default function FeedPage() {
                 currentUserName={userData?.name || 'Me'}
                 currentUserPhoto={userData?.photoURL || null}
                 membersMap={membersMap}
-                getRelationship={getRelationship}
+                getRelationshipLabel={getRelationshipLabel}
               />
             ))}
             

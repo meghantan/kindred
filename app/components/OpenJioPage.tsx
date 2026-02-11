@@ -60,7 +60,7 @@ const INITIAL_FORM_STATE = {
 };
 
 export default function OpenJioPage() {
-  const { userData, familyMembers, getRelationship } = useAuth();
+  const { userData, familyMembers, getRelationshipLabel } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'list' | 'calendar'>('list');
   const [viewDate, setViewDate] = useState(new Date());
@@ -127,14 +127,14 @@ export default function OpenJioPage() {
     const groups: Record<string, DisplayMember[]> = {
       'Everyone': others,
       'Immediate Family': others.filter((m: any) => {
-        const rel = getRelationship(m.uid);
+        const rel = getRelationshipLabel(m.uid);
         return ['Parent', 'Sibling', 'Child'].includes(rel);
       }),
       'Peers': others.filter((m: any) => m.generation === userData.generation),
       'Youths': others.filter((m: any) => m.generation >= maxGen - 1),
     };
     setVisibilityGroups(groups);
-  }, [familyMembers, userData, getRelationship]);
+  }, [familyMembers, userData, getRelationshipLabel]);
 
   const sendNotificationChats = async (invitedMembers: DisplayMember[], message: string) => {
     if (!userData || invitedMembers.length === 0) return;
@@ -233,7 +233,7 @@ export default function OpenJioPage() {
     if (jio.creatorId === userData?.uid) return true;
     if (jio.visibility === 'Everyone') return true;
     if (jio.visibility === 'Immediate Family') {
-      const rel = getRelationship(jio.creatorId);
+      const rel = getRelationshipLabel(jio.creatorId);
       return ['Parent', 'Child', 'Sibling', 'Partner'].includes(rel);
     }
     if (jio.visibility === 'Peers') {
@@ -498,15 +498,15 @@ export default function OpenJioPage() {
         </div>
       )}
       {showParticipantsModal && (
-        <div className="fixed inset-0 bg-[#9C2D41]/10 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[2rem] p-8 w-full max-sm shadow-2xl border border-[#CB857C]/20 relative">
+        <div className="fixed inset-0 bg-[#9C2D41]/10 backdrop-blur-md flex items-center justify-center z-50 p-4" onClick={() => setShowParticipantsModal(null)}>
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl border border-[#CB857C]/20 relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowParticipantsModal(null)} className="absolute top-6 right-6 text-[#CB857C] hover:text-[#9C2D41]"><Icons.X /></button>
             <h3 className="text-2xl font-light text-[#9C2D41] mb-6 text-center border-b border-[#CB857C]/10 pb-4" style={{ fontFamily: 'Georgia, serif' }}>Guest List</h3>
             <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
               {jioEvents.find(j => j.id === showParticipantsModal)?.participants.map((name, i) => {
                 const member = memberMap[name];
                 const isMe = member?.uid === userData?.uid;
-                const relationship = (member && !isMe) ? getRelationship(member.uid) : "";
+                const relationship = (member && !isMe) ? getRelationshipLabel(member.uid) : "";
                 return (
                   <div key={i} className="flex items-center justify-between p-3 hover:bg-[#FAF7F4] rounded-2xl transition-colors">
                     <div className="flex items-center gap-3">
