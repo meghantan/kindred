@@ -5,14 +5,14 @@ from hobby import extract_interests_from_post, suggest_matches
 from translation import translate_text,transcribe_and_process_audio
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.get("/health")
 def health():
     return {"ok": True}
 
 # Translation Route
-@app.post("/translate")
+@app.route("/translate", methods=["POST", "OPTIONS"])
 def translate():
     data = request.get_json(silent=True) or {}
     text = (data.get("text") or "").strip()
@@ -26,6 +26,32 @@ def translate():
     return jsonify({"translated": translated})
 
 from hobby import extract_interests_from_post, suggest_matches
+
+@app.route("/transcribe", methods=["POST", "OPTIONS"])
+def transcribe():
+    # 1. Handle the CORS Preflight request
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"}), 200
+        
+    # 2. Handle the actual POST request
+    data = request.get_json(silent=True) or {}
+    audio_data = data.get("audio")
+    target_lang = data.get("toLang") or "Standard English"
+    should_translate = data.get("shouldTranslate", False)
+    
+    if not audio_data:
+        return jsonify({"error": "audio required"}), 400
+
+    text = transcribe_and_process_audio(audio_data, target_lang, should_translate)
+    
+    # Catch specific errors and return proper HTTP status codes
+    if text == "ERROR_MISSING_OPENAI_KEY" or text == "ERROR_MISSING_API_KEY":
+         return jsonify({"error": "API key is missing on the server."}), 500
+    elif text == "ERROR_PROCESSING_AUDIO":
+        return jsonify({"error": "Failed to process audio."}), 500
+
+    return jsonify({"text": text})
+
 
 @app.post("/analyze-post")
 def analyze_post():

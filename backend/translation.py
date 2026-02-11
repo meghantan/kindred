@@ -1,9 +1,10 @@
 import os
 import base64
 import io
+import tempfile
 from dotenv import load_dotenv
 from google import genai
-from google.genai import types # Add this import
+from openai import OpenAI
 
 load_dotenv()
 
@@ -51,39 +52,49 @@ def translate_text(text: str, from_lang: str, to_lang: str) -> str:
         return text
 
 def transcribe_and_process_audio(audio_base64: str, target_lang: str, should_translate: bool) -> str:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return "ERROR_MISSING_API_KEY"
+    """
+    1. Transcribes audio using OpenAI Whisper (highly accurate).
+    2. If translation is needed, sends text to Gemini for tone adjustment.
+    """
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not openai_api_key:
+        return "ERROR_MISSING_OPENAI_KEY"
 
     try:
-        client = genai.Client(api_key=api_key)
+        # 1. Decode Base64 to a temporary file for Whisper
         audio_bytes = base64.b64decode(audio_base64)
         
-        if should_translate:
-            prompt_text = (
-                f"Transcribe this audio. The speaker may use English or Singaporean dialects "
-                f"like Hokkien, Cantonese, or Mandarin. Translate the content into {target_lang}. "
-                "Preserve the emotional intent and Singaporean context. Return ONLY the translation."
-            )
-        else:
-            prompt_text = "Transcribe this English audio into text. Return only the transcription."
+        with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as temp_audio:
+            temp_audio.write(audio_bytes)
+            temp_audio_path = temp_audio.name
 
-        response = client.models.generate_content(
-            model="gemini-2.0-flash", 
-            contents=[
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part.from_text(text=prompt_text),
-                        types.Part.from_bytes(data=audio_bytes, mime_type="audio/webm")
-                    ]
-                )
-            ]
-        )
-        return (response.text or "").strip()
+        # 2. Transcribe with OpenAI Whisper
+        client = OpenAI(api_key=openai_api_key)
+        
+        with open(temp_audio_path, "rb") as audio_file:
+            # transcription returns the raw text in the original language (e.g., Hokkien/English mix)
+            transcription = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file,
+                prompt="The audio may contain Singaporean English (Singlish), Mandarin, Hokkien, or Cantonese."
+            )
+        
+        raw_text = transcription.text
+        
+        # Clean up temp file
+        os.remove(temp_audio_path)
+
+        # 3. If NO translation is needed, just return the text
+        if not should_translate:
+            return raw_text
+
+        # 4. If translation IS needed, use Gemini to shift the tone/dialect
+        # We assume the 'from_lang' is detected from the context or generic "Singlish/Dialect"
+        return translate_text(raw_text, "Singlish/Dialect", target_lang)
+
     except Exception as e:
-        error_msg = repr(e)
-        print("Voice processing error:", error_msg)
-        if "429" in error_msg or "Quota" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-            return "ERROR_QUOTA_EXCEEDED"
+        print("Voice processing error:", repr(e))
+        # Cleanup if file exists
+        if 'temp_audio_path' in locals() and os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
         return "ERROR_PROCESSING_AUDIO"

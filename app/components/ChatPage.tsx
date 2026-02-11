@@ -235,7 +235,9 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       
       reader.onloadend = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
-        setIsTranslating(true);
+        
+        // Using isTranslating to disable the send button while it loads
+        setIsTranslating(true); 
         
         try {
           const res = await fetch("http://localhost:5001/transcribe", {
@@ -243,14 +245,14 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               audio: base64Audio,
-              shouldTranslate: isTranslationMode,
-              toLang: LANGUAGES.find(l => l.id === toLang)?.name
+              
+              // 1. FORCE FALSE: We only want the original language text right now
+              shouldTranslate: false 
             }),
           });
           
           const data = await res.json();
           
-          // ERROR HANDLING: Check if backend returned an error (like 429 Quota Exceeded)
           if (!res.ok) {
             alert(`Transcription Failed: ${data.error || 'Unknown error occurred'}`);
             setIsTranslating(false);
@@ -258,6 +260,7 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
           }
 
           if (data.text) {
+            // 2. PLACES ORIGINAL TEXT IN BOX: You can now review your Mandarin/Hokkien text
             setNewMessage(data.text);
           }
         } catch (err) {
@@ -268,7 +271,6 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
         }
       };
     };
-
     mediaRecorder.current.start();
     setIsRecording(true);
   };
@@ -547,37 +549,74 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
             </div>
 
             {/* INPUT AREA */}
-            <div className="p-8 border-t border-[#CB857C]/10 bg-white shadow-sm">
-               <form onSubmit={handleSendMessage} className="flex gap-4">
-                 <input
-                   type="text"
-                   value={newMessage}
-                   onChange={(e) => setNewMessage(e.target.value)}
+            <div className="p-6 border-t border-[#CB857C]/10 bg-white shadow-sm">
+               <form onSubmit={handleSendMessage} className="flex gap-4 items-center">
+                 
+                 {/* VOICE RECORD BUTTON */}
+                 <button 
+                   type="button"
+                   onClick={isRecording ? stopRecording : startRecording}
                    disabled={isTranslating}
-                   placeholder={isTranslationMode ? `Type in ${LANGUAGES.find(l=>l.id===fromLang)?.name}...` : "Type a message..."}
-                   className={`flex-1 px-6 py-5 rounded-[2rem] border bg-[#FAF7F4] focus:outline-none focus:ring-2 transition-all text-[#9C2D41] placeholder-[#CB857C]/50 text-[15px] font-normal shadow-sm ${
-                      isTranslationMode 
-                        ? 'border-[#9C2D41]/30 focus:border-[#9C2D41] focus:ring-[#9C2D41]/20' 
-                        : 'border-[#CB857C]/30 focus:ring-[#CB857C]/20 focus:border-[#CB857C]'
-                   }`}
-                 />
+                   className={`p-4 rounded-full transition-all shrink-0 shadow-sm flex items-center justify-center ${
+                     isRecording 
+                       ? 'bg-red-500 text-white animate-pulse hover:bg-red-600' 
+                       : 'bg-[#FAF7F4] text-[#9C2D41] border border-[#CB857C]/30 hover:bg-[#F6CBB7]/30'
+                   } ${isTranslating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                   title={isRecording ? "Stop Recording" : "Start Voice Typing"}
+                 >
+                   {isRecording ? (
+                     /* Pause / Stop Icon */
+                     <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                       <path d="M6 6h4v12H6zM14 6h4v12h-4z" />
+                     </svg>
+                   ) : (
+                     /* Microphone Icon */
+                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 10v1a7 7 0 01-14 0v-1M12 19v4m-4 0h8" />
+                     </svg>
+                   )}
+                 </button>
+
+                 {/* TEXT INPUT */}
+                 <div className="relative flex-1">
+                   <input
+                     type="text"
+                     value={newMessage}
+                     onChange={(e) => setNewMessage(e.target.value)}
+                     disabled={isTranslating || isRecording}
+                     placeholder={
+                       isRecording ? "Listening... (Tap pause to stop)" : 
+                       isTranslating ? "Transcribing..." : 
+                       isTranslationMode ? `Type or speak in ${LANGUAGES.find(l=>l.id===fromLang)?.name}...` : 
+                       "Type a message..."
+                     }
+                     className={`w-full pl-6 pr-12 py-4 rounded-[2rem] border bg-[#FAF7F4] focus:outline-none focus:ring-2 transition-all text-[#9C2D41] text-[15px] font-normal shadow-sm ${
+                        isTranslationMode 
+                          ? 'border-[#9C2D41]/30 focus:border-[#9C2D41] focus:ring-[#9C2D41]/20 placeholder-[#9C2D41]/50' 
+                          : 'border-[#CB857C]/30 focus:ring-[#CB857C]/20 focus:border-[#CB857C] placeholder-[#CB857C]/60'
+                     } ${(isTranslating || isRecording) ? 'opacity-80 bg-gray-50' : ''}`}
+                   />
+                   
+                   {/* Transcribing Loading Spinner */}
+                   {isTranslating && (
+                     <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[#CB857C]">
+                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                     </div>
+                   )}
+                 </div>
+
+                 {/* SEND BUTTON */}
                  <button 
                    type="submit"
-                   disabled={isTranslating}
-                   className="px-10 py-5 rounded-[2rem] font-semibold text-white transition-all active:scale-95 disabled:opacity-50 shadow-md hover:shadow-lg bg-[#9C2D41] hover:bg-[#852233] tracking-wide text-sm"
+                   disabled={isTranslating || isRecording || !newMessage.trim()}
+                   className="px-10 py-4 rounded-[2rem] font-semibold text-white transition-all active:scale-95 disabled:opacity-50 shadow-md hover:shadow-lg bg-[#9C2D41] hover:bg-[#852233] tracking-wide text-sm shrink-0"
                  >
-                   {isTranslating ? 'Translating...' : 'Send'}
+                   Send
                  </button>
-                 <button 
-                    type="button"
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`p-4 rounded-full transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#CB857C]/20 text-[#9C2D41]'}`}
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
-                      <path d="M19 10v1a7 7 0 01-14 0v-1M12 19v4m-4 0h8" strokeWidth={2} strokeLinecap="round" />
-                    </svg>
-                  </button>
                </form>
             </div>
           </>
