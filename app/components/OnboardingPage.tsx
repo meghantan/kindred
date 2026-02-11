@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '@/library/firebase';
+
+interface Relationship {
+  uid: string;
+  type: 'parent' | 'child' | 'partner' | 'sibling';
+  addedAt: string;
+}
 
 interface ExistingMember {
   uid: string;
@@ -11,8 +17,7 @@ interface ExistingMember {
   generation: number;
   originalGeneration: number;
   photoURL: string | null;
-  connectedTo?: string;
-  connectionType?: string;
+  relationships: Relationship[];
 }
 
 interface OnboardingPageProps {
@@ -85,6 +90,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
       const q = query(collection(db, "users"), where("familyId", "==", "family_demo_123"));
       const snapshot = await getDocs(q);
       const members: ExistingMember[] = [];
+      
       snapshot.forEach(doc => {
         if (doc.id !== user?.uid) {
           const data = doc.data();
@@ -96,8 +102,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
             generation: originalGen,
             originalGeneration: originalGen,
             photoURL: data.photoURL,
-            connectedTo: data.connectedTo,
-            connectionType: data.connectionType
+            relationships: data.relationships || []
           });
         }
       });
@@ -131,34 +136,47 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     setIsAddingCustom(false);
   };
 
-  // --- Submission Logic ---
+  // --- Generation Calculation Logic ---
   const calculatedGeneration = () => {
     if (!selectedAnchor) return 1;
     if (relationshipType === 'child') return selectedAnchor.originalGeneration + 1;
     if (relationshipType === 'parent') return selectedAnchor.originalGeneration - 1;
-    return selectedAnchor.originalGeneration;
+    return selectedAnchor.originalGeneration; // partner or sibling = same generation
   };
 
+  // --- Submission Logic with Relationships Array ---
   const handleSubmit = async () => {
     if (!user) return;
     setIsSubmitting(true);
 
     try {
-      let finalConnectedTo = selectedAnchor ? selectedAnchor.uid : null;
-      let finalConnectionType = relationshipType;
-
-      if (relationshipType === 'sibling' && selectedAnchor) {
-        if (selectedAnchor.connectedTo && selectedAnchor.connectionType === 'child') {
-          finalConnectedTo = selectedAnchor.connectedTo;
-          finalConnectionType = 'child';
+      const timestamp = new Date().toISOString();
+      
+      // Build the new user's relationships array
+      const newUserRelationships: Relationship[] = [];
+      
+      if (relationshipType && selectedAnchor) {
+        // Add the primary relationship
+        newUserRelationships.push({
+          uid: selectedAnchor.uid,
+          type: relationshipType as 'parent' | 'child' | 'partner' | 'sibling',
+          addedAt: timestamp
+        });
+        
+        // Special handling for sibling - also connect to parent if sibling has one
+        if (relationshipType === 'sibling') {
+          const siblingParentRel = selectedAnchor.relationships.find(r => r.type === 'parent');
+          if (siblingParentRel) {
+            newUserRelationships.push({
+              uid: siblingParentRel.uid,
+              type: 'child',
+              addedAt: timestamp
+            });
+          }
         }
       }
 
-      if (relationshipType === 'parent' && selectedAnchor) {
-        finalConnectedTo = null;
-        finalConnectionType = null;
-      }
-
+      // Create the new user profile
       const newProfile = {
         uid: user.uid,
         name: user.displayName || 'Anonymous',
@@ -166,25 +184,69 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         photoURL: user.photoURL,
         interests: interests, 
         familyId: "family_demo_123",
-        createdAt: new Date().toISOString(),
+        createdAt: timestamp,
         generation: calculatedGeneration(),
         role: 'member',
-        connectedTo: finalConnectedTo,
-        connectionType: finalConnectionType
+        relationships: newUserRelationships
       };
 
+      // Save the new user
       await setDoc(doc(db, "users", user.uid), newProfile);
       
-      if (relationshipType === 'parent' && selectedAnchor) {
-        await setDoc(doc(db, "users", selectedAnchor.uid), {
-          connectedTo: user.uid,
-          connectionType: 'child'
+      // Update the selected anchor's relationships (add reciprocal relationship)
+      if (relationshipType && selectedAnchor) {
+        const reciprocalType = getReciprocalRelationshipType(relationshipType as any);
+        
+        // Fetch current anchor data to preserve existing relationships
+        const anchorDocRef = doc(db, "users", selectedAnchor.uid);
+        const anchorDoc = await getDoc(anchorDocRef);
+        const anchorData = anchorDoc.data();
+        
+        const existingRelationships = anchorData?.relationships || [];
+        
+        // Add the new reciprocal relationship
+        const updatedRelationships = [
+          ...existingRelationships,
+          {
+            uid: user.uid,
+            type: reciprocalType,
+            addedAt: timestamp
+          }
+        ];
+        
+        await setDoc(anchorDocRef, {
+          relationships: updatedRelationships
         }, { merge: true });
+        
+        // Special handling for sibling - update parent's children list
+        if (relationshipType === 'sibling') {
+          const siblingParentRel = selectedAnchor.relationships.find(r => r.type === 'parent');
+          if (siblingParentRel) {
+            const parentDocRef = doc(db, "users", siblingParentRel.uid);
+            const parentDoc = await getDoc(parentDocRef);
+            const parentData = parentDoc.data();
+            
+            const parentRelationships = parentData?.relationships || [];
+            const updatedParentRelationships = [
+              ...parentRelationships,
+              {
+                uid: user.uid,
+                type: 'child',
+                addedAt: timestamp
+              }
+            ];
+            
+            await setDoc(parentDocRef, {
+              relationships: updatedParentRelationships
+            }, { merge: true });
+          }
+        }
       }
       
+      // Update family metadata
       await setDoc(doc(db, "families", "family_demo_123"), {
         name: "The Tan Family",
-        updatedAt: new Date().toISOString()
+        updatedAt: timestamp
       }, { merge: true });
 
       if (onComplete) onComplete();
@@ -196,6 +258,17 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper function to get reciprocal relationship type
+  const getReciprocalRelationshipType = (type: 'parent' | 'child' | 'partner' | 'sibling'): 'parent' | 'child' | 'partner' | 'sibling' => {
+    const reciprocalMap: Record<string, 'parent' | 'child' | 'partner' | 'sibling'> = {
+      'parent': 'child',
+      'child': 'parent',
+      'partner': 'partner',
+      'sibling': 'sibling'
+    };
+    return reciprocalMap[type];
   };
 
   const uniqueGenerations = Array.from(new Set(existingMembers.map(m => m.generation))).sort((a, b) => a - b);
@@ -383,8 +456,8 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
         {/* Connection Panel */}
         <div className="p-8 border-t border-[#CB857C]/15 bg-white z-20 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
           {existingMembers.length === 0 ? (
-             <button onClick={handleSubmit} className="w-full py-4 bg-[#9C2D41] text-[#FAF7F4] rounded-full text-[13px] uppercase tracking-widest font-bold hover:bg-[#852233] transition-all shadow-md active:scale-[0.98]">
-               Plant the Tree
+             <button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-4 bg-[#9C2D41] text-[#FAF7F4] rounded-full text-[13px] uppercase tracking-widest font-bold hover:bg-[#852233] transition-all shadow-md active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed">
+               {isSubmitting ? 'Planting Tree...' : 'Plant the Tree'}
              </button>
           ) : (
              <>

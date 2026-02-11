@@ -43,7 +43,7 @@ export default function Page() {
       case 'profile': 
         return <ProfilePage onBack={() => setCurrentPage('dashboard')} />;
       default:
-        return <Dashboard userName={userData?.name} />;
+        return <Dashboard />;  // FIXED: Removed userName prop
     }
   };
 

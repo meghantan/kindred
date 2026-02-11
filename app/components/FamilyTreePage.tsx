@@ -3,6 +3,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { getPartners, getChildren, getParents } from '@/library/relationship-utils';
+
+interface Relationship {
+  uid: string;
+  type: 'parent' | 'child' | 'partner' | 'sibling';
+  addedAt: string;
+}
 
 interface FamilyMember {
   id: string;
@@ -10,8 +17,7 @@ interface FamilyMember {
   generation: number;
   photoURL?: string;
   role: string;
-  connectedTo?: string;
-  connectionType?: string;
+  relationships: Relationship[];
 }
 
 interface FamilyTreePageProps {
@@ -34,34 +40,24 @@ const sortMembersForLayout = (membersInGen: FamilyMember[], allMembers: FamilyMe
     partnerSorted.push(member);
     couplesHandled.add(member.id);
 
-    // Find their partner (checking if they point to someone, OR someone points to them)
-    let partner = null;
-    if (member.connectionType === 'partner' && member.connectedTo) {
-      partner = sorted.find(m => m.id === member.connectedTo);
-    } else {
-      partner = sorted.find(m => m.connectionType === 'partner' && m.connectedTo === member.id);
-    }
-
-    // IMPORTANT FIX: Only add the partner if they exist AND haven't been added yet
-    if (partner && !couplesHandled.has(partner.id)) {
-      partnerSorted.push(partner);
-      couplesHandled.add(partner.id);
+    // Find their partner using relationships array
+    const partnerRel = member.relationships?.find(r => r.type === 'partner');
+    if (partnerRel) {
+      const partner = sorted.find(m => m.id === partnerRel.uid);
+      if (partner && !couplesHandled.has(partner.id)) {
+        partnerSorted.push(partner);
+        couplesHandled.add(partner.id);
+      }
     }
   });
 
   // 2. Sort by parent connection (try to align under parents)
   partnerSorted.sort((a, b) => {
-    let parentA = a.connectionType === 'child' ? a.connectedTo : null;
-    if (!parentA) {
-       const parentLink = allMembers.find(m => m.connectionType === 'parent' && m.connectedTo === a.id);
-       if (parentLink) parentA = parentLink.id;
-    }
+    const parentRelA = a.relationships?.find(r => r.type === 'parent');
+    const parentRelB = b.relationships?.find(r => r.type === 'parent');
 
-    let parentB = b.connectionType === 'child' ? b.connectedTo : null;
-    if (!parentB) {
-       const parentLink = allMembers.find(m => m.connectionType === 'parent' && m.connectedTo === b.id);
-       if (parentLink) parentB = parentLink.id;
-    }
+    const parentA = parentRelA?.uid || null;
+    const parentB = parentRelB?.uid || null;
 
     if (parentA && parentB && parentA !== parentB) {
       return parentA.localeCompare(parentB);
@@ -105,7 +101,7 @@ const UserAvatar = ({
 };
 
 export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps) {
-  const { userData, user, getRelationship } = useAuth();
+  const { userData, user, getRelationshipLabel } = useAuth();
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -124,8 +120,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
           generation: d.generation !== undefined ? d.generation : 1,
           photoURL: d.photoURL,
           role: d.role,
-          connectedTo: d.connectedTo,
-          connectionType: d.connectionType
+          relationships: d.relationships || []
         });
       });
       
@@ -198,43 +193,57 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       svg.appendChild(line);
     };
 
+    // Draw partner lines using relationships array
     members.forEach(person => {
-      if (person.connectionType === 'partner' && person.connectedTo) {
+      const partnerRels = person.relationships?.filter(r => r.type === 'partner') || [];
+      partnerRels.forEach(partnerRel => {
         const myPos = positions.get(person.id);
-        const partnerPos = positions.get(person.connectedTo);
+        const partnerPos = positions.get(partnerRel.uid);
         if (myPos && partnerPos) {
-          createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
-          const midX = (myPos.x + partnerPos.x) / 2;
-          const midY = (myPos.y + partnerPos.y) / 2;
-          coupleMidpoints.set(person.id, {x: midX, y: midY});
-          coupleMidpoints.set(person.connectedTo, {x: midX, y: midY});
+          // Only draw once per couple (check if we haven't drawn this line yet)
+          if (person.id < partnerRel.uid) {
+            createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
+            const midX = (myPos.x + partnerPos.x) / 2;
+            const midY = (myPos.y + partnerPos.y) / 2;
+            coupleMidpoints.set(person.id, {x: midX, y: midY});
+            coupleMidpoints.set(partnerRel.uid, {x: midX, y: midY});
+          }
         }
-      }
+      });
     });
 
+    // Draw parent-child lines using relationships array
     members.forEach(child => {
-      if (child.connectionType === 'child' && child.connectedTo) {
+      const parentRels = child.relationships?.filter(r => r.type === 'parent') || [];
+      parentRels.forEach(parentRel => {
         const childPos = positions.get(child.id);
         if (!childPos) return;
-        let parentPos = coupleMidpoints.get(child.connectedTo);
-        if (!parentPos) {
-          const pos = positions.get(child.connectedTo);
-          if (pos) parentPos = pos;
+        
+        const parent = members.find(m => m.id === parentRel.uid);
+        if (!parent) return;
+        
+        // Find the parent's partner (if any)
+        const parentPartnerRel = parent.relationships?.find(r => r.type === 'partner');
+        const parentPartner = parentPartnerRel ? members.find(m => m.id === parentPartnerRel.uid) : null;
+        
+        // Check if THIS child is also a child of the parent's partner
+        const childHasPartnerAsParent = parentPartner && 
+          child.relationships?.some(r => r.type === 'parent' && r.uid === parentPartner.id);
+        
+        let parentPos;
+        
+        // Only use couple midpoint if BOTH parents are parents of this child
+        if (childHasPartnerAsParent && coupleMidpoints.get(parentRel.uid)) {
+          parentPos = coupleMidpoints.get(parentRel.uid);
+        } else {
+          // Use individual parent position
+          parentPos = positions.get(parentRel.uid);
         }
+        
         if (parentPos) {
           createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
         }
-      }
-    });
-
-    members.forEach(parent => {
-      if (parent.connectionType === 'parent' && parent.connectedTo) {
-        const parentPos = positions.get(parent.id);
-        const childPos = positions.get(parent.connectedTo);
-        if (parentPos && childPos) {
-          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
-        }
-      }
+      });
     });
   };
 
@@ -294,10 +303,11 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                     Gen {gen}
                   </div>
                   <div className="flex-1 flex justify-center gap-16 flex-wrap">
-                    {/* Sort applied right here before mapping! */}
                     {sortMembersForLayout(members.filter(m => m.generation === gen), members).map(member => {
                       const isMe = member.id === user?.uid;
-                      const relationship = getRelationship(member.id);
+                      
+                      // Use getRelationshipLabel which handles reciprocals automatically!
+                      const displayLabel = isMe ? "You" : getRelationshipLabel(member.id);
                       
                       return (
                         <div 
@@ -331,7 +341,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                               </p>
                               
                               <p className={`text-xs font-medium uppercase tracking-wider mt-1 ${isMe ? 'text-[#F6CBB7]' : 'text-[#CB857C]/80'}`}>
-                                {isMe ? "You" : relationship}
+                                {displayLabel}
                               </p>
                             </div>
                           </div>

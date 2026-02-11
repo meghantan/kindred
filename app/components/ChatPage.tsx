@@ -67,7 +67,7 @@ const UserAvatar = ({ name, url, size = "w-10 h-10", textClass = "text-sm" }: { 
 };
 
 export default function ChatPage({ preselectedMember }: ChatPageProps) {
-  const { user, userData, familyMembers, getRelationship } = useAuth();
+  const { user, userData, familyMembers, getRelationshipLabel } = useAuth();
   
   const [chatPreviews, setChatPreviews] = useState<ChatPreview[]>([]);
   const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
@@ -376,7 +376,7 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                   {preview.lastMessage}
                 </p>
                 <span className="inline-block px-3 py-1 rounded-full text-[10px] bg-[#CB857C]/10 text-[#CB857C] uppercase font-bold tracking-wider">
-                  {getRelationship(preview.member.uid)}
+                  {getRelationshipLabel(preview.member.uid)}
                 </span>
               </div>
             </button>
