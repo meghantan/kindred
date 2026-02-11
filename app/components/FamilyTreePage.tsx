@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { getPartners, getChildren, getParents } from '@/library/relationship-utils';
 
 interface Relationship {
   uid: string;
@@ -24,48 +23,47 @@ interface FamilyTreePageProps {
   onNavigateToChat?: (member: FamilyMember) => void;
 }
 
-// Helper to sort members within a generation to minimize line crossing
-const sortMembersForLayout = (membersInGen: FamilyMember[], allMembers: FamilyMember[]) => {
-  let sorted = [...membersInGen];
-
-  // 1. Keep partners together without duplicates
+// Group members into unbreakable units so couples are never separated by the sort!
+const sortMembersForLayout = (membersInGen: FamilyMember[]) => {
   const couplesHandled = new Set<string>();
-  const partnerSorted: FamilyMember[] = [];
+  const units: FamilyMember[][] = [];
 
-  sorted.forEach(member => {
-    // If we already handled this person, skip!
+  // 1. Group couples together
+  membersInGen.forEach(member => {
     if (couplesHandled.has(member.id)) return;
 
-    // Add current member
-    partnerSorted.push(member);
+    const unit = [member];
     couplesHandled.add(member.id);
 
-    // Find their partner using relationships array
     const partnerRel = member.relationships?.find(r => r.type === 'partner');
     if (partnerRel) {
-      const partner = sorted.find(m => m.id === partnerRel.uid);
+      const partner = membersInGen.find(m => m.id === partnerRel.uid);
       if (partner && !couplesHandled.has(partner.id)) {
-        partnerSorted.push(partner);
+        unit.push(partner);
         couplesHandled.add(partner.id);
       }
     }
+    units.push(unit);
   });
 
-  // 2. Sort by parent connection (try to align under parents)
-  partnerSorted.sort((a, b) => {
-    const parentRelA = a.relationships?.find(r => r.type === 'parent');
-    const parentRelB = b.relationships?.find(r => r.type === 'parent');
+  // 2. Sort the whole units based on their parent's ID so siblings stay adjacent
+  units.sort((unitA, unitB) => {
+    const getParentId = (unit: FamilyMember[]) => {
+      for (const m of unit) {
+        const pRel = m.relationships?.find(r => r.type === 'parent');
+        if (pRel) return pRel.uid;
+      }
+      return null;
+    };
 
-    const parentA = parentRelA?.uid || null;
-    const parentB = parentRelB?.uid || null;
+    const parentA = getParentId(unitA) || "";
+    const parentB = getParentId(unitB) || "";
 
-    if (parentA && parentB && parentA !== parentB) {
-      return parentA.localeCompare(parentB);
-    }
-    return 0;
+    return parentA.localeCompare(parentB);
   });
 
-  return partnerSorted;
+  // 3. Flatten the units back to a single row for rendering
+  return units.flat();
 };
 
 const UserAvatar = ({ 
@@ -146,24 +144,14 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       svg.removeChild(svg.firstChild);
     }
 
-    const rect = container.getBoundingClientRect();
-    svg.setAttribute('width', rect.width.toString());
-    svg.setAttribute('height', rect.height.toString());
-
     const containerRect = container.getBoundingClientRect();
+    svg.setAttribute('width', containerRect.width.toString());
+    svg.setAttribute('height', containerRect.height.toString());
 
     const getPos = (id: string) => {
       const node = itemsRef.current[id];
       if (!node) return null;
       const rect = node.getBoundingClientRect();
-      const avatar = node.querySelector('div'); 
-      if (avatar) {
-        const avatarRect = avatar.getBoundingClientRect();
-        return {
-          x: avatarRect.left + avatarRect.width / 2 - containerRect.left,
-          y: avatarRect.top + avatarRect.height / 2 - containerRect.top
-        };
-      }
       return {
         x: rect.left + rect.width / 2 - containerRect.left,
         y: rect.top + rect.height / 2 - containerRect.top
@@ -175,8 +163,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       const pos = getPos(m.id);
       if (pos) positions.set(m.id, pos);
     });
-
-    const coupleMidpoints = new Map<string, {x: number, y: number}>();
 
     const createLine = (x1: number, y1: number, x2: number, y2: number, color: string, width: number, dashed = false) => {
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -193,26 +179,26 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       svg.appendChild(line);
     };
 
-    // Draw partner lines using relationships array
+    // 1. Draw dashed partner lines safely
+    const drawnPartners = new Set<string>();
+
     members.forEach(person => {
       const partnerRels = person.relationships?.filter(r => r.type === 'partner') || [];
       partnerRels.forEach(partnerRel => {
         const myPos = positions.get(person.id);
         const partnerPos = positions.get(partnerRel.uid);
         if (myPos && partnerPos) {
-          // Only draw once per couple (check if we haven't drawn this line yet)
-          if (person.id < partnerRel.uid) {
+          // Create a unique identifier for the couple so we only draw it once
+          const coupleKey = [person.id, partnerRel.uid].sort().join('-');
+          if (!drawnPartners.has(coupleKey)) {
             createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
-            const midX = (myPos.x + partnerPos.x) / 2;
-            const midY = (myPos.y + partnerPos.y) / 2;
-            coupleMidpoints.set(person.id, {x: midX, y: midY});
-            coupleMidpoints.set(partnerRel.uid, {x: midX, y: midY});
+            drawnPartners.add(coupleKey);
           }
         }
       });
     });
 
-    // Draw parent-child lines using relationships array
+    // 2. Draw parent-child lines (straight diagonal lines)
     members.forEach(child => {
       const parentRels = child.relationships?.filter(r => r.type === 'parent') || [];
       parentRels.forEach(parentRel => {
@@ -222,34 +208,31 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         const parent = members.find(m => m.id === parentRel.uid);
         if (!parent) return;
         
-        // Find the parent's partner (if any)
+        const parentPos = positions.get(parent.id);
+        if (!parentPos) return;
+
+        let startX = parentPos.x;
+        let startY = parentPos.y + 35; // Default: start line at the bottom of a single parent's card
+        
+        // FIX: Dynamically check if this parent has a partner! 
+        // If they do, start the line exactly on the dashed partner line in the center.
         const parentPartnerRel = parent.relationships?.find(r => r.type === 'partner');
-        const parentPartner = parentPartnerRel ? members.find(m => m.id === parentPartnerRel.uid) : null;
-        
-        // Check if THIS child is also a child of the parent's partner
-        const childHasPartnerAsParent = parentPartner && 
-          child.relationships?.some(r => r.type === 'parent' && r.uid === parentPartner.id);
-        
-        let parentPos;
-        
-        // Only use couple midpoint if BOTH parents are parents of this child
-        if (childHasPartnerAsParent && coupleMidpoints.get(parentRel.uid)) {
-          parentPos = coupleMidpoints.get(parentRel.uid);
-        } else {
-          // Use individual parent position
-          parentPos = positions.get(parentRel.uid);
+        if (parentPartnerRel) {
+          const partnerPos = positions.get(parentPartnerRel.uid);
+          if (partnerPos) {
+             startX = (parentPos.x + partnerPos.x) / 2;
+             startY = parentPos.y; // Starts exactly on the dashed partner line Y-coordinate
+          }
         }
         
-        if (parentPos) {
-          createLine(parentPos.x, parentPos.y, childPos.x, childPos.y, '#9C2D41', 2.5);
-        }
+        createLine(startX, startY, childPos.x, childPos.y - 45, '#9C2D41', 2.5);
       });
     });
   };
 
   useEffect(() => {
     if (members.length > 0) {
-      const timer = setTimeout(drawAllLines, 800);
+      const timer = setTimeout(drawAllLines, 500); // Wait for DOM to place cards before drawing lines
       window.addEventListener('resize', drawAllLines);
       return () => {
         clearTimeout(timer);
@@ -284,6 +267,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         ref={containerRef} 
         className="rounded-[3rem] border border-[#CB857C]/20 shadow-xl relative min-h-[500px] py-16 px-10 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
       >
+        {/* SVG is placed at z-index 10 so lines safely hide behind the z-index 20 cards */}
         <svg 
           ref={svgRef}
           className="absolute top-0 left-0 w-full h-full pointer-events-none"
@@ -303,10 +287,9 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                     Gen {gen}
                   </div>
                   <div className="flex-1 flex justify-center gap-16 flex-wrap">
-                    {sortMembersForLayout(members.filter(m => m.generation === gen), members).map(member => {
+                    {sortMembersForLayout(members.filter(m => m.generation === gen)).map(member => {
                       const isMe = member.id === user?.uid;
                       
-                      // Use getRelationshipLabel which handles reciprocals automatically!
                       const displayLabel = isMe ? "You" : getRelationshipLabel(member.id);
                       
                       return (

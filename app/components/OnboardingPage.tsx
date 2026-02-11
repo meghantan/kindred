@@ -246,13 +246,18 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
     try {
       const timestamp = new Date().toISOString();
-      
       const newUserRelationships: Relationship[] = [];
       
-      if (relationshipType && selectedAnchor) {
+      // FIX: Translate UI selection to Database Schema
+      // If I am their 'child', they are my 'parent'.
+      const dbTypeForMe = relationshipType ? getReciprocalRelationshipType(relationshipType as any) : null;
+      // If I am their 'child', I am their 'child' in their profile.
+      const dbTypeForAnchor = relationshipType as 'parent' | 'child' | 'partner' | 'sibling' | null;
+
+      if (relationshipType && selectedAnchor && dbTypeForMe) {
         newUserRelationships.push({
           uid: selectedAnchor.uid,
-          type: relationshipType as 'parent' | 'child' | 'partner' | 'sibling',
+          type: dbTypeForMe,
           addedAt: timestamp
         });
         
@@ -261,7 +266,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           if (siblingParentRel) {
             newUserRelationships.push({
               uid: siblingParentRel.uid,
-              type: 'parent',  // Fixed: This person is MY parent, not my child
+              type: 'parent',
               addedAt: timestamp
             });
           }
@@ -283,9 +288,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
 
       await setDoc(doc(db, "users", user.uid), newProfile);
       
-      if (relationshipType && selectedAnchor) {
-        const reciprocalType = getReciprocalRelationshipType(relationshipType as any);
-        
+      if (relationshipType && selectedAnchor && dbTypeForAnchor) {
         const anchorDocRef = doc(db, "users", selectedAnchor.uid);
         const anchorDoc = await getDoc(anchorDocRef);
         const anchorData = anchorDoc.data();
@@ -296,7 +299,7 @@ export default function OnboardingPage({ onComplete }: OnboardingPageProps) {
           ...existingRelationships,
           {
             uid: user.uid,
-            type: reciprocalType,
+            type: dbTypeForAnchor,
             addedAt: timestamp
           }
         ];
