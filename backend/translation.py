@@ -1,6 +1,9 @@
 import os
+import base64
+import io
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types # Add this import
 
 load_dotenv()
 
@@ -47,30 +50,40 @@ def translate_text(text: str, from_lang: str, to_lang: str) -> str:
         print("Gemini translation error:", repr(e))
         return text
 
-
-def transcribe_hokkien_audio(audio_base64: str) -> str:
+def transcribe_and_process_audio(audio_base64: str, target_lang: str, should_translate: bool) -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return ""
+        return "ERROR_MISSING_API_KEY"
 
     try:
         client = genai.Client(api_key=api_key)
-        
-        # Decode the base64 audio from the frontend
         audio_bytes = base64.b64decode(audio_base64)
         
-        prompt = "Transcribe this audio. The speaker is talking in Singaporean Hokkien. Return only the transcription in text."
-        
-        # Multimodal request: Text prompt + Audio data
-        resp = client.models.generate_content(
-            model="gemini-2.0-flash", # Use a multimodal model
+        if should_translate:
+            prompt_text = (
+                f"Transcribe this audio. The speaker may use English or Singaporean dialects "
+                f"like Hokkien, Cantonese, or Mandarin. Translate the content into {target_lang}. "
+                "Preserve the emotional intent and Singaporean context. Return ONLY the translation."
+            )
+        else:
+            prompt_text = "Transcribe this English audio into text. Return only the transcription."
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash", 
             contents=[
-                prompt,
-                {"mime_type": "audio/webm", "data": audio_bytes}
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt_text),
+                        types.Part.from_bytes(data=audio_bytes, mime_type="audio/webm")
+                    ]
+                )
             ]
         )
-        
-        return (resp.text or "").strip()
+        return (response.text or "").strip()
     except Exception as e:
-        print("Transcription error:", repr(e))
-        return ""
+        error_msg = repr(e)
+        print("Voice processing error:", error_msg)
+        if "429" in error_msg or "Quota" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            return "ERROR_QUOTA_EXCEEDED"
+        return "ERROR_PROCESSING_AUDIO"

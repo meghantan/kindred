@@ -232,32 +232,42 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
       const reader = new FileReader();
       reader.readAsDataURL(audioBlob);
+      
       reader.onloadend = async () => {
         const base64Audio = (reader.result as string).split(',')[1];
-        
         setIsTranslating(true);
+        
         try {
-          // 1. Transcribe Hokkien Voice to Text
           const res = await fetch("http://localhost:5001/transcribe", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audio: base64Audio }),
+            body: JSON.stringify({ 
+              audio: base64Audio,
+              shouldTranslate: isTranslationMode,
+              toLang: LANGUAGES.find(l => l.id === toLang)?.name
+            }),
           });
+          
           const data = await res.json();
           
+          // ERROR HANDLING: Check if backend returned an error (like 429 Quota Exceeded)
+          if (!res.ok) {
+            alert(`Transcription Failed: ${data.error || 'Unknown error occurred'}`);
+            setIsTranslating(false);
+            return;
+          }
+
           if (data.text) {
             setNewMessage(data.text);
-            // 2. If translation is on and source is Hokkien, the text is ready for handleSendMessage
-            if (fromLang === 'hokkien') {
-              // Optional: Automatically trigger translation preview
-            }
           }
         } catch (err) {
-          console.error("Voice transcription failed", err);
+          alert("Network Error: Could not connect to the transcription server.");
+          console.error("Transcription failed", err);
+        } finally {
+          setIsTranslating(false);
         }
-        setIsTranslating(false);
       };
-  };
+    };
 
     mediaRecorder.current.start();
     setIsRecording(true);
