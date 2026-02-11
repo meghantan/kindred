@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/library/firebase';
 import { 
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp 
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, arrayUnion, arrayRemove, Timestamp, serverTimestamp, getDocs 
 } from 'firebase/firestore';
 
 // --- ICONS ---
@@ -175,11 +175,9 @@ export default function OpenJioPage() {
         visibility: formState.visibility,
         maxParticipants: formState.maxParticipants ? parseInt(formState.maxParticipants) : null,
       };
-      const recipients = visibilityGroups[formState.visibility] || visibilityGroups['Everyone'];
+
       if (isEditing && selectedEvent) {
         await updateDoc(doc(db, "jios", selectedEvent.id), payload);
-        const updateMsg = `${userData.name} updated details for "${formState.title}" on ${formState.date}.`;
-        await sendNotificationChats(recipients, updateMsg);
       } else {
         await addDoc(collection(db, "jios"), {
           ...payload,
@@ -189,8 +187,6 @@ export default function OpenJioPage() {
           familyId: userData.familyId,
           createdAt: Timestamp.now()
         });
-        const inviteMsg = `${userData.name} invited you to "${formState.title}" on ${formState.date}.`;
-        await sendNotificationChats(recipients, inviteMsg);
       }
       handleCloseForm();
     } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
@@ -287,25 +283,57 @@ export default function OpenJioPage() {
     const hasJoined = jio.participants.includes(userData?.name || '');
     const [localSuggestions, setLocalSuggestions] = useState<DisplayMember[]>([]);
     const [isLocalMatching, setIsLocalMatching] = useState(false);
+    const [suggestionSource, setSuggestionSource] = useState<'ai' | 'family' | null>(null);
 
     const fetchMatchesForJio = async (e: React.MouseEvent) => {
       e.stopPropagation();
       setIsLocalMatching(true);
       try {
+        // 1. ATTEMPT AI HOBBY MATCH
         const membersPayload = familyMembers.map((m: any) => ({ 
           name: m.name, 
           interests: m.interests || [] 
         }));
+        
         const res = await fetch("http://localhost:5001/suggest-jio-matches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: jio.title, description: jio.description, members: membersPayload }),
+          body: JSON.stringify({ 
+            title: jio.title, 
+            description: jio.description, 
+            members: membersPayload 
+          }),
         });
+        
         const data = await res.json();
         const aiSuggestedNames = (data.suggestions || []).map((n: string) => n.trim().toLowerCase());
-        const matchedMembers = familyMembers.filter((m: any) => aiSuggestedNames.includes(m.name.trim().toLowerCase()));
-        setLocalSuggestions(matchedMembers);
-      } catch (e) { console.error(e); } finally { setIsLocalMatching(false); }
+        
+        let matchedMembers = familyMembers.filter((m: any) => 
+          aiSuggestedNames.includes(m.name.trim().toLowerCase()) && m.uid !== userData?.uid
+        );
+
+        if (matchedMembers.length > 0) {
+          setSuggestionSource('ai');
+          setLocalSuggestions(matchedMembers);
+        } else {
+          // 2. FALLBACK: IMMEDIATE FAMILY
+          console.log("No interest matches found. Suggesting immediate family...");
+          
+          const immediateFamily = familyMembers.filter((m: any) => {
+            if (m.uid === userData?.uid) return false;
+            const rel = getRelationshipLabel(m.uid);
+            return ['Parent', 'Sibling', 'Child'].includes(rel);
+          });
+
+          // If no immediate family found, just suggest any top 3 members
+          setLocalSuggestions(immediateFamily.length > 0 ? immediateFamily : familyMembers.filter(m => m.uid !== userData?.uid).slice(0, 3));
+          setSuggestionSource('family');
+        }
+      } catch (error) { 
+        console.error("Matching error:", error); 
+      } finally { 
+        setIsLocalMatching(false); 
+      }
     };
 
     return (
@@ -362,7 +390,9 @@ export default function OpenJioPage() {
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <Icons.Sparkles />
-                <h4 className="text-[11px] font-bold text-[#9C2D41] uppercase tracking-widest">Kindred Matches</h4>
+                <h4 className="text-[11px] font-bold text-[#9C2D41] uppercase tracking-widest">
+                  {suggestionSource === 'ai' ? 'Kindred Matches' : suggestionSource === 'family' ? 'Immediate Family' : 'Suggested Matches'}
+                </h4>
               </div>
               <button onClick={fetchMatchesForJio} className="text-[10px] text-[#CB857C] font-bold hover:text-[#9C2D41] transition-colors">
                 {isLocalMatching ? 'Finding...' : 'Find Matches'}
@@ -374,7 +404,7 @@ export default function OpenJioPage() {
                   key={member.uid}
                   onClick={(e) => {
                     e.stopPropagation();
-                    const msg = `Hi ${member.name}! I'm organizing "${jio.title}" on ${jio.date.toLocaleDateString()}. Based on your interests, I thought you might want to join!`;
+                    const msg = `Hi ${member.name}! I'm organizing "${jio.title}" on ${jio.date.toLocaleDateString()}. ${suggestionSource === 'ai' ? "Based on your interests, I thought you might want to join!" : "Wanted to see if you'd be free to join!"}`;
                     sendNotificationChats([member], msg);
                     alert(`Private invite sent to ${member.name}!`);
                   }}
