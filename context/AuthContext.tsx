@@ -189,7 +189,10 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         if (!baseName || baseName === 'Me') continue;
         if (baseName === 'Parent' || baseName.includes('Grandparent')) return `${baseName}-in-Law`;
         if (baseName === 'Sibling') return 'Sibling-in-Law';
-        if (baseName === 'Child' || baseName.includes('Grandchild')) return `Step-${baseName}`;
+        
+        // FIX: Your partner's descendants are fully your descendants! No more "Step-".
+        if (baseName === 'Child' || baseName.includes('Grandchild')) return baseName; 
+        
         return `${baseName}-in-Law`;
       }
     }
@@ -201,9 +204,9 @@ export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
         const baseName = getRelationshipName(path.up, path.down);
         if (!baseName || baseName === 'Me') continue;
         
-        // FIX: Your parent's partner is your PARENT.
-        if (baseName === 'Parent') return 'Parent'; 
-        if (baseName.includes('Grandparent')) return `Step-${baseName}`;
+        // FIX: Your parent's/grandparent's partner is fully your parent/grandparent! No more "Step-".
+        if (baseName === 'Parent' || baseName.includes('Grandparent')) return baseName; 
+        
         if (baseName === 'Child' || baseName.includes('Grandchild')) return `${baseName}-in-Law`;
         if (baseName === 'Sibling') return 'Sibling-in-Law';
         return `${baseName}-in-Law`;

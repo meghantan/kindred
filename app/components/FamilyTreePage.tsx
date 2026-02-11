@@ -23,49 +23,6 @@ interface FamilyTreePageProps {
   onNavigateToChat?: (member: FamilyMember) => void;
 }
 
-// Group members into unbreakable units so couples are never separated by the sort!
-const sortMembersForLayout = (membersInGen: FamilyMember[]) => {
-  const couplesHandled = new Set<string>();
-  const units: FamilyMember[][] = [];
-
-  // 1. Group couples together
-  membersInGen.forEach(member => {
-    if (couplesHandled.has(member.id)) return;
-
-    const unit = [member];
-    couplesHandled.add(member.id);
-
-    const partnerRel = member.relationships?.find(r => r.type === 'partner');
-    if (partnerRel) {
-      const partner = membersInGen.find(m => m.id === partnerRel.uid);
-      if (partner && !couplesHandled.has(partner.id)) {
-        unit.push(partner);
-        couplesHandled.add(partner.id);
-      }
-    }
-    units.push(unit);
-  });
-
-  // 2. Sort the whole units based on their parent's ID so siblings stay adjacent
-  units.sort((unitA, unitB) => {
-    const getParentId = (unit: FamilyMember[]) => {
-      for (const m of unit) {
-        const pRel = m.relationships?.find(r => r.type === 'parent');
-        if (pRel) return pRel.uid;
-      }
-      return null;
-    };
-
-    const parentA = getParentId(unitA) || "";
-    const parentB = getParentId(unitB) || "";
-
-    return parentA.localeCompare(parentB);
-  });
-
-  // 3. Flatten the units back to a single row for rendering
-  return units.flat();
-};
-
 const UserAvatar = ({ 
   name, 
   url, 
@@ -134,6 +91,68 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
     return () => unsubscribe();
   }, [userData]);
 
+  // --- PRE-CALCULATE TOP-DOWN VISUAL LAYOUT ---
+  const uniqueGenerations = Array.from(new Set(members.map(m => m.generation))).sort((a,b) => a-b);
+  const sortedGenerations: FamilyMember[][] = [];
+  let previousGenSorted: FamilyMember[] = [];
+
+  uniqueGenerations.forEach(gen => {
+    const membersInGen = members.filter(m => m.generation === gen);
+    const couplesHandled = new Set<string>();
+    const units: FamilyMember[][] = [];
+
+    // 1. Group couples together
+    membersInGen.forEach(member => {
+      if (couplesHandled.has(member.id)) return;
+      const unit = [member];
+      couplesHandled.add(member.id);
+
+      const partnerRel = member.relationships?.find(r => r.type === 'partner');
+      if (partnerRel) {
+        const partner = membersInGen.find(m => m.id === partnerRel.uid);
+        if (partner && !couplesHandled.has(partner.id)) {
+          // Always order partners deterministically so they don't swap sides randomly
+          if (member.id < partner.id) {
+            unit.push(partner);
+          } else {
+            unit.unshift(partner);
+          }
+          couplesHandled.add(partner.id);
+        }
+      }
+      units.push(unit);
+    });
+
+    // 2. Sort units based on parent's VISUAL INDEX in the PREVIOUS generation
+    units.sort((unitA, unitB) => {
+      const getParentIndex = (unit: FamilyMember[]) => {
+        for (const m of unit) {
+          const pRel = m.relationships?.find(r => r.type === 'parent');
+          if (pRel) {
+            const idx = previousGenSorted.findIndex(prevM => prevM.id === pRel.uid);
+            if (idx !== -1) return idx;
+          }
+        }
+        return 999999; // If no parent in prev generation, push to the end
+      };
+
+      const idxA = getParentIndex(unitA);
+      const idxB = getParentIndex(unitB);
+
+      if (idxA !== idxB) {
+        return idxA - idxB;
+      }
+
+      // Fallback to alphabetical if they have the same parent or no parent
+      return unitA[0].id.localeCompare(unitB[0].id);
+    });
+
+    const flattenedSorted = units.flat();
+    sortedGenerations.push(flattenedSorted);
+    previousGenSorted = flattenedSorted;
+  });
+
+  // --- DRAW LINES ---
   const drawAllLines = () => {
     if (!svgRef.current || !containerRef.current || members.length === 0) return;
 
@@ -188,7 +207,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         const myPos = positions.get(person.id);
         const partnerPos = positions.get(partnerRel.uid);
         if (myPos && partnerPos) {
-          // Create a unique identifier for the couple so we only draw it once
           const coupleKey = [person.id, partnerRel.uid].sort().join('-');
           if (!drawnPartners.has(coupleKey)) {
             createLine(myPos.x, myPos.y, partnerPos.x, partnerPos.y, '#CB857C', 2.5, true);
@@ -214,14 +232,13 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         let startX = parentPos.x;
         let startY = parentPos.y + 35; // Default: start line at the bottom of a single parent's card
         
-        // FIX: Dynamically check if this parent has a partner! 
-        // If they do, start the line exactly on the dashed partner line in the center.
+        // Start the line exactly on the dashed partner line in the center if they have one
         const parentPartnerRel = parent.relationships?.find(r => r.type === 'partner');
         if (parentPartnerRel) {
           const partnerPos = positions.get(parentPartnerRel.uid);
           if (partnerPos) {
              startX = (parentPos.x + partnerPos.x) / 2;
-             startY = parentPos.y; // Starts exactly on the dashed partner line Y-coordinate
+             startY = parentPos.y; 
           }
         }
         
@@ -232,7 +249,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
 
   useEffect(() => {
     if (members.length > 0) {
-      const timer = setTimeout(drawAllLines, 500); // Wait for DOM to place cards before drawing lines
+      const timer = setTimeout(drawAllLines, 500);
       window.addEventListener('resize', drawAllLines);
       return () => {
         clearTimeout(timer);
@@ -247,8 +264,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       onNavigateToChat(member);
     }
   };
-
-  const uniqueGenerations = Array.from(new Set(members.map(m => m.generation))).sort((a,b) => a-b);
 
   return (
     <div className="w-full mx-auto px-8 py-16 pb-32 bg-[#FAF7F4]">
@@ -267,7 +282,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
         ref={containerRef} 
         className="rounded-[3rem] border border-[#CB857C]/20 shadow-xl relative min-h-[500px] py-16 px-10 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
       >
-        {/* SVG is placed at z-index 10 so lines safely hide behind the z-index 20 cards */}
         <svg 
           ref={svgRef}
           className="absolute top-0 left-0 w-full h-full pointer-events-none"
@@ -280,16 +294,18 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
           </div>
         ) : (
           <div className="flex flex-col gap-24 relative" style={{ zIndex: 20 }}>
-            {uniqueGenerations.map(gen => {
+            {uniqueGenerations.map((gen, index) => {
+              // Iterate over our precisely pre-sorted array!
+              const membersInThisGen = sortedGenerations[index] || [];
+
               return (
                 <div key={gen} className="flex items-center gap-8">
                   <div className="bg-gradient-to-r from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wider shadow-lg whitespace-nowrap">
                     Gen {gen}
                   </div>
                   <div className="flex-1 flex justify-center gap-16 flex-wrap">
-                    {sortMembersForLayout(members.filter(m => m.generation === gen)).map(member => {
+                    {membersInThisGen.map(member => {
                       const isMe = member.id === user?.uid;
-                      
                       const displayLabel = isMe ? "You" : getRelationshipLabel(member.id);
                       
                       return (
@@ -303,7 +319,6 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                           }}
                           className="flex flex-col items-center group relative"
                         >
-                          {/* CARD BOX */}
                           <div 
                             onClick={() => handleMemberClick(member)}
                             className={`flex flex-col items-center p-5 backdrop-blur-sm border rounded-[1.5rem] shadow-lg transition-all hover:scale-105 hover:shadow-xl cursor-pointer min-w-[160px] gap-3 ${
