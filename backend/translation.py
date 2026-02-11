@@ -46,3 +46,31 @@ def translate_text(text: str, from_lang: str, to_lang: str) -> str:
     except Exception as e:
         print("Gemini translation error:", repr(e))
         return text
+
+
+def transcribe_hokkien_audio(audio_base64: str) -> str:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return ""
+
+    try:
+        client = genai.Client(api_key=api_key)
+        
+        # Decode the base64 audio from the frontend
+        audio_bytes = base64.b64decode(audio_base64)
+        
+        prompt = "Transcribe this audio. The speaker is talking in Singaporean Hokkien. Return only the transcription in text."
+        
+        # Multimodal request: Text prompt + Audio data
+        resp = client.models.generate_content(
+            model="gemini-2.0-flash", # Use a multimodal model
+            contents=[
+                prompt,
+                {"mime_type": "audio/webm", "data": audio_bytes}
+            ]
+        )
+        
+        return (resp.text or "").strip()
+    except Exception as e:
+        print("Transcription error:", repr(e))
+        return ""

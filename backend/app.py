@@ -22,5 +22,17 @@ def translate():
     translated = translate_text(text, from_lang, to_lang)
     return jsonify({"translated": translated})
 
+@app.post("/transcribe")
+def transcribe():
+    data = request.get_json(silent=True) or {}
+    audio_data = data.get("audio") # Base64 string
+    
+    if not audio_data:
+        return jsonify({"error": "audio data required"}), 400
+
+    text = transcribe_hokkien_audio(audio_data)
+    return jsonify({"text": text})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

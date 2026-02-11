@@ -413,8 +413,13 @@ export default function OpenJioPage() {
                   <span className={`text-base font-bold inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${isToday ? 'bg-[#9C2D41] text-white shadow-md' : 'text-[#CB857C] group-hover:text-[#9C2D41]'}`}>{day}</span>
                   <div className="space-y-1.5 overflow-y-auto max-h-[90px] pr-1 custom-scrollbar">
                     {dayJios.map(jio => (
-                      <button key={jio.id} onClick={() => setSelectedEvent(jio)} className="w-full text-left text-xs py-2 px-2.5 rounded-xl bg-white border border-[#CB857C]/20 text-[#9C2D41] truncate font-bold flex items-center gap-2 hover:border-[#9C2D41]/40 hover:shadow-sm transition-all shadow-sm">
-                        <span className="opacity-80 scale-90">{categorySVGs[jio.category]}</span><span className="truncate">{jio.title}</span>
+                      <button 
+                        key={jio.id}                         
+                        onClick={() => setSelectedEvent(jio)} 
+                        className="w-full text-left text-[9px] py-1 px-1.5 rounded-lg bg-white border border-[#CB857C]/20 text-[#9C2D41] truncate font-bold flex items-center gap-1 shadow-sm"
+                        >
+                            <span className="opacity-70 scale-75">{categorySVGs[jio.category]}</span>{jio.title}
+                            
                       </button>
                     ))}
                   </div>

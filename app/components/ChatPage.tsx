@@ -81,6 +81,10 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
   const [fromLang, setFromLang] = useState('gen-z');
   const [toLang, setToLang] = useState('elder-english');
   const [isTranslating, setIsTranslating] = useState(false);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorder = useRef<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -215,6 +219,53 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
       }
       return translated;
     }
+  };
+
+
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder.current = new MediaRecorder(stream);
+    audioChunks.current = [];
+
+    mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
+    mediaRecorder.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
+      reader.onloadend = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        
+        setIsTranslating(true);
+        try {
+          // 1. Transcribe Hokkien Voice to Text
+          const res = await fetch("http://localhost:5001/transcribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64Audio }),
+          });
+          const data = await res.json();
+          
+          if (data.text) {
+            setNewMessage(data.text);
+            // 2. If translation is on and source is Hokkien, the text is ready for handleSendMessage
+            if (fromLang === 'hokkien') {
+              // Optional: Automatically trigger translation preview
+            }
+          }
+        } catch (err) {
+          console.error("Voice transcription failed", err);
+        }
+        setIsTranslating(false);
+      };
+  };
+
+    mediaRecorder.current.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorder.current?.stop();
+    setIsRecording(false);
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -507,6 +558,16 @@ export default function ChatPage({ preselectedMember }: ChatPageProps) {
                  >
                    {isTranslating ? 'Translating...' : 'Send'}
                  </button>
+                 <button 
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`p-4 rounded-full transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#CB857C]/20 text-[#9C2D41]'}`}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                      <path d="M19 10v1a7 7 0 01-14 0v-1M12 19v4m-4 0h8" strokeWidth={2} strokeLinecap="round" />
+                    </svg>
+                  </button>
                </form>
             </div>
           </>
