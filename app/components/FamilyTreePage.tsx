@@ -18,6 +18,60 @@ interface FamilyTreePageProps {
   onNavigateToChat?: (member: FamilyMember) => void;
 }
 
+// Helper to sort members within a generation to minimize line crossing
+const sortMembersForLayout = (membersInGen: FamilyMember[], allMembers: FamilyMember[]) => {
+  let sorted = [...membersInGen];
+
+  // 1. Keep partners together without duplicates
+  const couplesHandled = new Set<string>();
+  const partnerSorted: FamilyMember[] = [];
+
+  sorted.forEach(member => {
+    // If we already handled this person, skip!
+    if (couplesHandled.has(member.id)) return;
+
+    // Add current member
+    partnerSorted.push(member);
+    couplesHandled.add(member.id);
+
+    // Find their partner (checking if they point to someone, OR someone points to them)
+    let partner = null;
+    if (member.connectionType === 'partner' && member.connectedTo) {
+      partner = sorted.find(m => m.id === member.connectedTo);
+    } else {
+      partner = sorted.find(m => m.connectionType === 'partner' && m.connectedTo === member.id);
+    }
+
+    // IMPORTANT FIX: Only add the partner if they exist AND haven't been added yet
+    if (partner && !couplesHandled.has(partner.id)) {
+      partnerSorted.push(partner);
+      couplesHandled.add(partner.id);
+    }
+  });
+
+  // 2. Sort by parent connection (try to align under parents)
+  partnerSorted.sort((a, b) => {
+    let parentA = a.connectionType === 'child' ? a.connectedTo : null;
+    if (!parentA) {
+       const parentLink = allMembers.find(m => m.connectionType === 'parent' && m.connectedTo === a.id);
+       if (parentLink) parentA = parentLink.id;
+    }
+
+    let parentB = b.connectionType === 'child' ? b.connectedTo : null;
+    if (!parentB) {
+       const parentLink = allMembers.find(m => m.connectionType === 'parent' && m.connectedTo === b.id);
+       if (parentLink) parentB = parentLink.id;
+    }
+
+    if (parentA && parentB && parentA !== parentB) {
+      return parentA.localeCompare(parentB);
+    }
+    return 0;
+  });
+
+  return partnerSorted;
+};
+
 const UserAvatar = ({ 
   name, 
   url, 
@@ -207,11 +261,10 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
   return (
     <div className="w-full mx-auto px-8 py-16 pb-32 bg-[#FAF7F4]">
       {/* Header */}
-      <div className="text-center mb-20">
+      <div className="text-center mb-16">
         <h1 className="text-6xl font-light text-[#9C2D41] mb-3 tracking-tight" style={{ fontFamily: 'Georgia, serif' }}>
           Our Family Tree
         </h1>
-        {/* REFINED: Removed goofy logo, made text elegant */}
         <p className="text-xl text-[#CB857C] font-light tracking-wide">
           {members.length} {members.length === 1 ? 'Member' : 'Members'}
         </p>
@@ -220,7 +273,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
       {/* Tree Container */}
       <div 
         ref={containerRef} 
-        className="rounded-[3rem] border border-[#CB857C]/20 shadow-xl relative min-h-[700px] py-28 px-20 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
+        className="rounded-[3rem] border border-[#CB857C]/20 shadow-xl relative min-h-[500px] py-16 px-10 bg-gradient-to-br from-[#FAF7F4] via-white to-[#F6CBB7]/15 overflow-x-auto"
       >
         <svg 
           ref={svgRef}
@@ -233,15 +286,16 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
             <p className="text-xl text-[#CB857C]/80 font-normal">Loading family tree...</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-40 relative" style={{ zIndex: 20 }}>
+          <div className="flex flex-col gap-24 relative" style={{ zIndex: 20 }}>
             {uniqueGenerations.map(gen => {
               return (
                 <div key={gen} className="flex items-center gap-8">
                   <div className="bg-gradient-to-r from-[#9C2D41] to-[#CB857C] text-[#FAF7F4] px-5 py-2.5 rounded-full text-xs font-medium uppercase tracking-wider shadow-lg whitespace-nowrap">
                     Gen {gen}
                   </div>
-                  <div className="flex-1 flex justify-center gap-40 flex-wrap">
-                    {members.filter(m => m.generation === gen).map(member => {
+                  <div className="flex-1 flex justify-center gap-16 flex-wrap">
+                    {/* Sort applied right here before mapping! */}
+                    {sortMembersForLayout(members.filter(m => m.generation === gen), members).map(member => {
                       const isMe = member.id === user?.uid;
                       const relationship = getRelationship(member.id);
                       
@@ -259,7 +313,7 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                           {/* CARD BOX */}
                           <div 
                             onClick={() => handleMemberClick(member)}
-                            className={`flex flex-col items-center p-6 backdrop-blur-sm border rounded-[1.5rem] shadow-lg transition-all hover:scale-105 hover:shadow-xl cursor-pointer min-w-[200px] gap-4 ${
+                            className={`flex flex-col items-center p-5 backdrop-blur-sm border rounded-[1.5rem] shadow-lg transition-all hover:scale-105 hover:shadow-xl cursor-pointer min-w-[160px] gap-3 ${
                               isMe 
                                 ? 'bg-[#9C2D41] border-[#9C2D41] shadow-xl scale-105' 
                                 : 'bg-white/95 border-[#CB857C]/20 hover:border-[#9C2D41]/40'
@@ -272,11 +326,11 @@ export default function FamilyTreePage({ onNavigateToChat }: FamilyTreePageProps
                             />
                             
                             <div className="text-center">
-                              <p className={`text-xl font-normal ${isMe ? 'text-[#FAF7F4]' : 'text-[#9C2D41]'}`} style={{ fontFamily: 'Georgia, serif' }}>
+                              <p className={`text-lg font-normal ${isMe ? 'text-[#FAF7F4]' : 'text-[#9C2D41]'}`} style={{ fontFamily: 'Georgia, serif' }}>
                                 {member.name}
                               </p>
                               
-                              <p className={`text-sm font-medium uppercase tracking-wider mt-1 ${isMe ? 'text-[#F6CBB7]' : 'text-[#CB857C]/80'}`}>
+                              <p className={`text-xs font-medium uppercase tracking-wider mt-1 ${isMe ? 'text-[#F6CBB7]' : 'text-[#CB857C]/80'}`}>
                                 {isMe ? "You" : relationship}
                               </p>
                             </div>
